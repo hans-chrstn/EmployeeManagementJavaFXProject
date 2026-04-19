@@ -31,7 +31,8 @@
     devShells = forAllSystems ({pkgs}: {
       default = pkgs.mkShell {
         packages = with pkgs; [
-          zulu25
+          pandoc
+          gradle
           dbeaver-bin
           java-language-server
           (openjdk.override
