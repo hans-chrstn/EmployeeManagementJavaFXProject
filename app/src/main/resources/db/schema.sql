@@ -1,0 +1,11 @@
+CREATE DATABASE IF NOT EXISTS employee_db;
+USE employee_db;
+
+CREATE TABLE IF NOT EXISTS employees (
+  empid INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  ssn VARCHAR(9) NOT NULL UNIQUE,
+  salary DECIMAL(10, 2) NOT NULL,
+  job_title VARCHAR(100),
+  division VARCHAR(100)
+);
