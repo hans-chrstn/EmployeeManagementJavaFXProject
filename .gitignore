@@ -1,6 +1,7 @@
 **/.direnv/
 **/notes/
 **/.env
+bin/
 
 # Gradle
 .gradle

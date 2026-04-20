@@ -34,7 +34,7 @@
           pandoc
           gradle
           dbeaver-bin
-          java-language-server
+          jdt-language-server
           (openjdk.override
             {
               enableJavaFX = true;
