@@ -3,12 +3,213 @@
  */
 package dev.project.employeemanagement;
 
-public class App {
-    public String getGreeting() {
-        return "Hello World!";
+import dev.project.employeemanagement.model.Employee;
+import dev.project.employeemanagement.repository.EmployeeRepository;
+import java.sql.SQLException;
+import java.util.List;
+import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+
+public class App extends Application {
+  private final EmployeeRepository repository = new EmployeeRepository();
+  private final TableView<Employee> table = new TableView<>();
+  private final TextField searchField = new TextField();
+
+  private final TextField nameField = new TextField();
+  private final TextField ssnField = new TextField();
+  private final TextField salaryField = new TextField();
+  private final TextField jobTitleField = new TextField();
+  private final TextField divisionField = new TextField();
+  private Employee selectedEmployee;
+
+  @Override
+  public void start(Stage primaryStage) {
+    primaryStage.setTitle("Employee Management System - Company Z");
+
+    // search
+    HBox searchBar = new HBox(10);
+    searchBar.setPadding(new Insets(10));
+    searchField.setPromptText("Search by Name, SSN, or ID...");
+    Button searchButton = new Button("Search");
+    searchButton.setOnAction(e -> handleSearch());
+    searchBar.getChildren().addAll(new Label("Search:"), searchField, searchButton);
+
+    // table view
+    setupTable();
+
+    // edit/update panel
+    VBox updatePanel = createUpdatePanel();
+
+    // salary increase panel
+    HBox salaryPanel = createSalaryPanel();
+
+    // layout
+    BorderPane root = new BorderPane();
+    root.setTop(searchBar);
+    root.setCenter(table);
+    root.setRight(updatePanel);
+    root.setBottom(salaryPanel);
+
+    Scene scene = new Scene(root, 1100, 600);
+    primaryStage.setScene(scene);
+    primaryStage.show();
+
+    handleSearch();
+  }
+
+  private void setupTable() {
+    TableColumn<Employee, Integer> idCol = new TableColumn<>("ID");
+    idCol.setCellValueFactory(new PropertyValueFactory<>("empid"));
+
+    TableColumn<Employee, String> nameCol = new TableColumn<>("Name");
+    nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+    TableColumn<Employee, String> ssnCol = new TableColumn<>("SSN");
+    ssnCol.setCellValueFactory(new PropertyValueFactory<>("ssn"));
+
+    TableColumn<Employee, Double> salaryCol = new TableColumn<>("Salary");
+    salaryCol.setCellValueFactory(new PropertyValueFactory<>("salary"));
+
+    table.getColumns().addAll(idCol, nameCol, ssnCol, salaryCol);
+
+    table
+        .getSelectionModel()
+        .selectedItemProperty()
+        .addListener(
+            (obs, oldVal, newVal) -> {
+              if (newVal != null) {
+                selectedEmployee = newVal;
+                nameField.setText(newVal.getName());
+                ssnField.setText(newVal.getSsn());
+                salaryField.setText(String.valueOf(newVal.getSalary()));
+                jobTitleField.setText(newVal.getJobTitle());
+                divisionField.setText(newVal.getDivision());
+              }
+            });
+  }
+
+  private VBox createUpdatePanel() {
+    VBox panel = new VBox(10);
+    panel.setPadding(new Insets(10));
+    panel.setPrefWidth(250);
+    panel.setStyle("-fx-border-color: #ddd; -fx-border-width: 0 0 0 1;");
+
+    Button updateBtn = new Button("Save Changes");
+    updateBtn.setOnAction(e -> handleUpdate());
+
+    panel
+        .getChildren()
+        .addAll(
+            new Label("Update Selected Employee"),
+            new Label("Name:"),
+            nameField,
+            new Label("SSN:"),
+            ssnField,
+            new Label("Salary:"),
+            salaryField,
+            new Label("Job Title"),
+            jobTitleField,
+            new Label("Division"),
+            divisionField,
+            new Separator(),
+            updateBtn);
+    return panel;
+  }
+
+  private HBox createSalaryPanel() {
+    HBox panel = new HBox(15);
+    panel.setPadding(new Insets(15));
+    panel.setStyle("-fx-border-color: #ddd; -fx-border-width: 1 0 0 0;");
+
+    TextField pctField = new TextField();
+    pctField.setPromptText("% Increase");
+    TextField minField = new TextField();
+    minField.setPromptText("Min Salary");
+    TextField maxField = new TextField();
+    maxField.setPromptText("Max Salary");
+    Button applyBtn = new Button("Apply Batch Salary Increase");
+
+    applyBtn.setOnAction(e -> handleSalaryIncrease(pctField, minField, maxField));
+
+    panel
+        .getChildren()
+        .addAll(
+            new Label("Batch Update:"),
+            pctField,
+            new Label("Range:"),
+            minField,
+            new Label("to"),
+            maxField,
+            applyBtn);
+    return panel;
+  }
+
+  private void handleSearch() {
+    try {
+      List<Employee> results = repository.searchEmployees(searchField.getText());
+      table.setItems(FXCollections.observableArrayList(results));
+    } catch (SQLException e) {
+      showAlert("Database Error", "Failed to search employees: " + e.getMessage());
+    }
+  }
+
+  private void handleUpdate() {
+    if (selectedEmployee == null) {
+      return;
     }
 
-    public static void main(String[] args) {
-        System.out.println(new App().getGreeting());
+    try {
+      selectedEmployee.setName(nameField.getText());
+      selectedEmployee.setSsn(ssnField.getText());
+      selectedEmployee.setSalary(Double.parseDouble(salaryField.getText()));
+      selectedEmployee.setJobTitle(jobTitleField.getText());
+      selectedEmployee.setDivision(divisionField.getText());
+
+      repository.updateEmployee(selectedEmployee);
+      handleSearch();
+      showAlert("Success", "Employee updated successfully.");
+    } catch (Exception e) {
+      showAlert("Error", "Check your inputs and try again: " + e.getMessage());
     }
+  }
+
+  private void handleSalaryIncrease(TextField p, TextField min, TextField max) {
+    try {
+      double pct = Double.parseDouble(p.getText());
+      double minSal = Double.parseDouble(min.getText());
+      double maxSal = Double.parseDouble(max.getText());
+
+      repository.updateSalariesInRange(pct, minSal, maxSal);
+      handleSearch();
+      showAlert("Success", "Batch update complete!");
+    } catch (Exception e) {
+      showAlert("Input Error", "Please enter valid numeric values for the salary range.");
+    }
+  }
+
+  private void showAlert(String title, String content) {
+    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+    alert.setTitle(title);
+    alert.setHeaderText(null);
+    alert.setContentText(content);
+    alert.showAndWait();
+  }
+
+  public static void main(String[] args) {
+      launch(args);
+  }
 }
