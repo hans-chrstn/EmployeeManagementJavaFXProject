@@ -10,6 +10,7 @@ import java.util.List;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -40,10 +41,18 @@ public class App extends Application {
   public void start(Stage primaryStage) {
     primaryStage.setTitle("Employee Management System - Company Z");
 
+    // header
+    Label title = new Label("COMPANY Z - EMPLOYEE PORTAL");
+    title.getStyleClass().add("header-title");
+    HBox header = new HBox(title);
+    header.setPadding(new Insets(15, 10, 0, 15));
+
     // search
     HBox searchBar = new HBox(10);
-    searchBar.setPadding(new Insets(10));
+    searchBar.setAlignment(Pos.CENTER_LEFT);
+    searchBar.setPadding(new Insets(10, 10, 10, 15));
     searchField.setPromptText("Search by Name, SSN, or ID...");
+    searchField.setPrefWidth(300);
     Button searchButton = new Button("Search");
     searchButton.setOnAction(e -> handleSearch());
     searchBar.getChildren().addAll(new Label("Search:"), searchField, searchButton);
@@ -59,12 +68,19 @@ public class App extends Application {
 
     // layout
     BorderPane root = new BorderPane();
-    root.setTop(searchBar);
+    root.setTop(new VBox(5, header, searchBar));
     root.setCenter(table);
     root.setRight(updatePanel);
     root.setBottom(salaryPanel);
 
-    Scene scene = new Scene(root, 1100, 600);
+    Scene scene = new Scene(root, 1100, 700);
+
+    try {
+      scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+    } catch (Exception e) {
+      System.out.println("CSS could not be loaded: " + e.getMessage());
+    }
+
     primaryStage.setScene(scene);
     primaryStage.show();
 
@@ -74,6 +90,7 @@ public class App extends Application {
   private void setupTable() {
     TableColumn<Employee, Integer> idCol = new TableColumn<>("ID");
     idCol.setCellValueFactory(new PropertyValueFactory<>("empid"));
+    idCol.setPrefWidth(50);
 
     TableColumn<Employee, String> nameCol = new TableColumn<>("Name");
     nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
@@ -100,21 +117,25 @@ public class App extends Application {
                 divisionField.setText(newVal.getDivision());
               }
             });
+
+    table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
   }
 
   private VBox createUpdatePanel() {
-    VBox panel = new VBox(10);
-    panel.setPadding(new Insets(10));
-    panel.setPrefWidth(250);
-    panel.setStyle("-fx-border-color: #ddd; -fx-border-width: 0 0 0 1;");
+    VBox panel = new VBox(12);
+    panel.setPadding(new Insets(20));
+    panel.setPrefWidth(280);
+    panel.getStyleClass().add("side-panel");
 
     Button updateBtn = new Button("Save Changes");
+    updateBtn.setMaxWidth(Double.MAX_VALUE);
     updateBtn.setOnAction(e -> handleUpdate());
 
     panel
         .getChildren()
         .addAll(
-            new Label("Update Selected Employee"),
+            new Label("UPDATE SELECTED EMPLOYEE"),
+            new Separator(),
             new Label("Name:"),
             nameField,
             new Label("SSN:"),
@@ -132,11 +153,13 @@ public class App extends Application {
 
   private HBox createSalaryPanel() {
     HBox panel = new HBox(15);
-    panel.setPadding(new Insets(15));
-    panel.setStyle("-fx-border-color: #ddd; -fx-border-width: 1 0 0 0;");
+    panel.setAlignment(Pos.CENTER_LEFT);
+    panel.setPadding(new Insets(20));
+    panel.getStyleClass().add("bottom-panel");
 
     TextField pctField = new TextField();
     pctField.setPromptText("% Increase");
+    pctField.setPrefWidth(100);
     TextField minField = new TextField();
     minField.setPromptText("Min Salary");
     TextField maxField = new TextField();
@@ -148,11 +171,11 @@ public class App extends Application {
     panel
         .getChildren()
         .addAll(
-            new Label("Batch Update:"),
+            new Label("BATCH UPDATE:"),
             pctField,
-            new Label("Range:"),
+            new Label("RANGE:"),
             minField,
-            new Label("to"),
+            new Label("TO"),
             maxField,
             applyBtn);
     return panel;
@@ -210,6 +233,6 @@ public class App extends Application {
   }
 
   public static void main(String[] args) {
-      launch(args);
+    launch(args);
   }
 }
