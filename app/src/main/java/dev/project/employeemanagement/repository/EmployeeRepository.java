@@ -36,9 +36,8 @@ public class EmployeeRepository {
   }
 
   public void updateEmployee(Employee emp) throws SQLException {
-    String sql =
-        "UPDATE employees SET name = ?, ssn = ?, salary = ?, job_title = ?, division = ? WHERE"
-            + " empid = ?";
+    String sql = "UPDATE employees SET name = ?, ssn = ?, salary = ?, job_title = ?, division = ? WHERE"
+        + " empid = ?";
 
     try (Connection conn = DbConfig.getConnection();
         PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -55,9 +54,8 @@ public class EmployeeRepository {
 
   public void updateSalariesInRange(double percentage, double minSalary, double maxSalary)
       throws SQLException {
-    String sql =
-        "UPDATE employees SET salary = salary + (salary * ? / 100) WHERE salary >= ? AND salary <"
-            + " ?";
+    String sql = "UPDATE employees SET salary = salary + (salary * ? / 100) WHERE salary >= ? AND salary <"
+        + " ?";
 
     try (Connection conn = DbConfig.getConnection();
         PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -65,6 +63,31 @@ public class EmployeeRepository {
       stmt.setDouble(2, minSalary);
       stmt.setDouble(3, maxSalary);
 
+      stmt.executeUpdate();
+    }
+  }
+
+  public void addEmployee(Employee emp) throws SQLException {
+    String sql = "INSERT INTO employees (name, ssn, salary, job_title, division) VALUES (?, ?, ?, ?, ?)";
+
+    try (Connection conn = DbConfig.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, emp.getName());
+      stmt.setString(2, emp.getSsn());
+      stmt.setDouble(3, emp.getSalary());
+      stmt.setString(4, emp.getJobTitle());
+      stmt.setString(5, emp.getDivision());
+
+      stmt.executeUpdate();
+    }
+  }
+
+  public void deleteEmployee(int empid) throws SQLException {
+    String sql = "DELETE FROM employees WHERE empid = ?";
+
+    try (Connection conn = DbConfig.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setInt(1, empid);
       stmt.executeUpdate();
     }
   }
