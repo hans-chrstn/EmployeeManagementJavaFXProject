@@ -17,16 +17,16 @@ Write-Host "Creating user and db..."
 $sql = @"
 DROP USER IF EXISTS '$env:DB_USER'@'localhost';
 CREATE USER '$env:DB_USER'@'localhost' IDENTIFIED BY '$env:DB_PASS';
-CREATE DATABASE IF NOT EXISTS employee_db;
-GRANT ALL PRIVILEGES ON employee_db.* TO '$env:DB_USER'@'localhost';
+CREATE DATABASE IF NOT EXISTS EmployeeData3;
+GRANT ALL PRIVILEGES ON EmployeeData3.* TO '$env:DB_USER'@'localhost';
 FLUSH PRIVILEGES;
 "@
 
 $sql | & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p"$rootPass"
-Write-Host "Granted privileges to '$env:DB_USER' on db: employee_db"
+Write-Host "Granted privileges to '$env:DB_USER' on db: EmployeeData3"
 
 # apply schema
 Write-Host "Applying schema..."
-Get-Content app/src/main/resources/db/schema.sql | & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u "$env:DB_USER" -p"$env:DB_PASS" employee_db
+Get-Content app/src/main/resources/db/schema.sql | & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u "$env:DB_USER" -p"$env:DB_PASS" EmployeeData3
 
 Write-Host "done"
