@@ -5,13 +5,29 @@
 - DATABASE STRUCUTRE LOC: `app/src/main/resources/db/schema.sql`
 
   > this contains the database strucutre and salary ranges
-  > (basically the src of truth of our db)## Prerequisites
+  > (basically the src of truth of our db)
+
+## Prerequisites
 
 - **Java 21** or higher.
 - **MySQL Server** running locally.
 - **Environment Variables:** Set `DB_USER` and `DB_PASS` in your environment
 
 ## How to Build and Run
+
+### Database Setup
+
+```bash
+# Unix
+sh ./setup_db.sh
+
+# Windows
+powershell.exe -ExecutionPolicy Bypass -File .\setup_db.ps1
+```
+
+> **Note**
+> If you are manually creating the database, make sure
+> the name of the database is EmployeeData3
 
 ### Unix / Linux / macOS
 
@@ -42,13 +58,3 @@
     ```cmd
     gradlew.bat test
     ```
-
-## Database Setup
-
-```bash
-# Unix
-sh ./setup_db.sh
-
-# Windows
-powershell.exe -ExecutionPolicy Bypass -File .\setup_db.ps1
-```
