@@ -254,17 +254,66 @@ public class App extends Application {
   }
 
   private void handleSalaryIncrease(TextField p, TextField min, TextField max) {
-    try {
-      double pct = Double.parseDouble(p.getText());
-      double minSal = Double.parseDouble(min.getText());
-      double maxSal = Double.parseDouble(max.getText());
+    String pctInput = p.getText().trim();
+    String minInput = min.getText().trim();
+    String maxInput = max.getText().trim();
 
+    if (pctInput.isEmpty() || minInput.isEmpty() || maxInput.isEmpty()) {
+      showAlert(
+          "Missing Input",
+          "Enter all three values: percentage increase, minimum salary, and maximum salary.");
+      return;
+    }
+
+    String cleanedPct = pctInput.replace("%", "").trim();
+    String cleanedMin = minInput.replace(",", "").replace("$", "").replace(">", "").trim();
+    String cleanedMax = maxInput.replace(",", "").replace("$", "").replace("<", "").trim();
+
+    double pct;
+    double minSal;
+    double maxSal;
+
+    try {
+      pct = Double.parseDouble(cleanedPct);
+      minSal = Double.parseDouble(cleanedMin);
+      maxSal = Double.parseDouble(cleanedMax);
+    } catch (NumberFormatException e) {
+      showAlert(
+          "Invalid Salary Range Input",
+          "Use numbers only. Examples: 3.2, 50000, 100000. You can also type 3.2%, $50,000, or $100,000.");
+      return;
+    }
+
+    if (pct <= 0) {
+      showAlert("Invalid Percentage", "Percentage increase must be greater than 0.");
+      return;
+    }
+
+    if (minSal < 0 || maxSal < 0) {
+      showAlert("Invalid Salary Range", "Minimum and maximum salary must be 0 or greater.");
+      return;
+    }
+
+    if (minSal >= maxSal) {
+      showAlert(
+          "Invalid Salary Range",
+          "Minimum salary must be less than maximum salary. Example: 58000 and 105000.");
+      return;
+    }
+
+    try {
       repository.updateSalariesInRange(pct, minSal, maxSal);
       handleSearch();
-      updateStatus("Salaries updated successfully.");
-      showAlert("Success", "Salaries updated successfully.");
+      updateStatus(
+          String.format(
+              "Applied %.2f%% increase for salaries from $%,.2f up to $%,.2f.", pct, minSal, maxSal));
+      showAlert(
+          "Success",
+          String.format(
+              "Applied %.2f%% increase for employees with salaries from $%,.2f up to $%,.2f.",
+              pct, minSal, maxSal));
     } catch (Exception e) {
-      showAlert("Input Error", "Please enter valid numeric values for the salary range.");
+      showAlert("Database Error", "Could not update salaries: " + e.getMessage());
     }
   }
 
