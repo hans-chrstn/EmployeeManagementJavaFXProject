@@ -66,7 +66,7 @@ public class App extends Application {
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
-    searchField.setPromptText("Filter employees...");
+    searchField.setPromptText("Search by name, SSN, or ID...");
     searchField.setPrefWidth(350);
     searchField.setOnKeyReleased(e -> handleSearch());
 
@@ -107,6 +107,8 @@ public class App extends Application {
     primaryStage.setScene(scene);
     primaryStage.show();
 
+    jobTitleField.setEditable(false);
+    jobTitleField.setPromptText("View only");
     handleSearch();
   }
 
@@ -124,17 +126,21 @@ public class App extends Application {
     TableColumn<Employee, Double> salaryCol = new TableColumn<>("Salary");
     salaryCol.setCellValueFactory(new PropertyValueFactory<>("salary"));
     salaryCol.setCellFactory(
-        tc ->
-            new TableCell<>() {
-              @Override
-              protected void updateItem(Double val, boolean empty) {
-                super.updateItem(val, empty);
-                if (empty || val == null) setText(null);
-                else setText(String.format("$%,.2f", val));
-              }
-            });
+        tc -> new TableCell<>() {
+          @Override
+          protected void updateItem(Double val, boolean empty) {
+            super.updateItem(val, empty);
+            if (empty || val == null)
+              setText(null);
+            else
+              setText(String.format("$%,.2f", val));
+          }
+        });
 
-    table.getColumns().addAll(idCol, nameCol, ssnCol, salaryCol);
+    TableColumn<Employee, String> jobTitleCol = new TableColumn<>("Job Title");
+    jobTitleCol.setCellValueFactory(new PropertyValueFactory<>("jobTitle"));
+
+    table.getColumns().addAll(idCol, nameCol, ssnCol, salaryCol, jobTitleCol);
 
     table
         .getSelectionModel()
@@ -147,7 +153,6 @@ public class App extends Application {
                 ssnField.setText(newVal.getSsn());
                 salaryField.setText(String.valueOf(newVal.getSalary()));
                 jobTitleField.setText(newVal.getJobTitle());
-                divisionField.setText(newVal.getDivision());
                 updateStatus("Selected: " + newVal.getName());
               }
             });
@@ -171,7 +176,6 @@ public class App extends Application {
     addFormField(grid, "SSN", ssnField, 1);
     addFormField(grid, "Salary", salaryField, 2);
     addFormField(grid, "Job Title", jobTitleField, 3);
-    addFormField(grid, "Division", divisionField, 4);
 
     Button saveBtn = new Button("Save Changes");
     saveBtn.getStyleClass().add("button-primary");
@@ -220,11 +224,23 @@ public class App extends Application {
   }
 
   private void handleUpdate() {
-    if (selectedEmployee == null) return;
+    if (selectedEmployee == null) {
+      showAlert("No Selection", "Please select an employee first.");
+      return;
+    }
+
+    double parsedSalary;
     try {
-      selectedEmployee.setName(nameField.getText());
-      selectedEmployee.setSsn(ssnField.getText());
-      selectedEmployee.setSalary(Double.parseDouble(salaryField.getText()));
+      parsedSalary = Double.parseDouble(salaryField.getText().trim());
+    } catch (NumberFormatException e) {
+      showAlert("Error", "Salary must be a valid number.");
+      return;
+    }
+
+    try {
+      selectedEmployee.setName(nameField.getText().trim());
+      selectedEmployee.setSsn(ssnField.getText().trim());
+      selectedEmployee.setSalary(parsedSalary);
       selectedEmployee.setJobTitle(jobTitleField.getText());
       selectedEmployee.setDivision(divisionField.getText());
 
