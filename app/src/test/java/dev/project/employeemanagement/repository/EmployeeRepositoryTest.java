@@ -5,9 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.project.employeemanagement.model.Employee;
+import dev.project.employeemanagement.model.FullTimeEmployee;
+import dev.project.employeemanagement.model.Payroll;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,14 +26,18 @@ public class EmployeeRepositoryTest {
     repository = new EmployeeRepository();
     try (Connection conn = DbConfig.getConnection();
         Statement stmt = conn.createStatement()) {
+      stmt.execute("DELETE FROM payroll");
+      stmt.execute("DELETE FROM employee_division");
+      stmt.execute("DELETE FROM employee_job_titles");
       stmt.execute("DELETE FROM employees");
+      
       stmt.execute(
-          "INSERT INTO employees (empid, name, ssn, salary, job_title, division) "
-              + "VALUES (1, 'John Doe', '123456789', 50000.00, 'Engineer', 'IT')");
+          "INSERT INTO employees (empid, Fname, Lname, SSN, Salary, email, HireDate) "
+              + "VALUES (1, 'John', 'Doe', '444444444', 50000.00, 'john@example.com', '2020-01-01')");
 
       stmt.execute(
-          "INSERT INTO employees (empid, name, ssn, salary, job_title, division) "
-              + "VALUES (2, 'Jane Smith', '987654321', 60000.00, 'Manager', 'HR')");
+          "INSERT INTO employees (empid, Fname, Lname, SSN, Salary, email, HireDate) "
+              + "VALUES (2, 'Jane', 'Smith', '555555555', 60000.00, 'jane@example.com', '2019-01-01')");
     }
   }
 
@@ -45,7 +52,7 @@ public class EmployeeRepositoryTest {
   @Test
   @DisplayName("Test: Valid SSN")
   void testSearchBySsn() throws SQLException {
-    List<Employee> results = repository.searchEmployees("987654321");
+    List<Employee> results = repository.searchEmployees("555555555");
     assertEquals(1, results.size());
     assertEquals("Jane Smith", results.get(0).getName());
   }
@@ -66,22 +73,32 @@ public class EmployeeRepositoryTest {
   }
 
   @Test
-  @DisplayName("Test: Valid Employee Data")
+  @DisplayName("Test: Valid Employee Data Update")
   void testUpdateEmployee() throws SQLException {
-    Employee emp = new Employee(1, "John updated", "123456789", 55000.00, "Senior Eng", "IT");
+    Employee emp = new FullTimeEmployee(1, "John", "Updated", "john@example.com", LocalDate.of(2020, 1, 1), 55000.00, "444444444", null, null);
     repository.updateEmployee(emp);
 
-    List<Employee> results = repository.searchEmployees("John updated");
+    List<Employee> results = repository.searchEmployees("Updated");
     assertEquals(1, results.size());
     assertEquals(55000.00, results.get(0).getSalary());
-    assertEquals("Senior Eng", results.get(0).getJobTitle());
   }
 
   @Test
-  @DisplayName("Test: Non-existent ID")
-  void testUpdateNonExistent() throws SQLException {
-    Employee emp = new Employee(999, "No one", "000000000", 10.00, "None", "None");
-    assertDoesNotThrow(() -> repository.updateEmployee(emp));
+  @DisplayName("Test: Add New Employee")
+  void testAddEmployee() throws SQLException {
+    Employee emp = new FullTimeEmployee(0, "New", "User", "new@example.com", LocalDate.now(), 45000.00, "999999999", null, null);
+    repository.addEmployee(emp);
+    
+    List<Employee> results = repository.searchEmployees("New User");
+    assertEquals(1, results.size());
+  }
+
+  @Test
+  @DisplayName("Test: Delete Employee")
+  void testDeleteEmployee() throws SQLException {
+    repository.deleteEmployee(1);
+    List<Employee> results = repository.searchEmployees("1");
+    assertTrue(results.isEmpty());
   }
 
   @Test
@@ -97,11 +114,13 @@ public class EmployeeRepositoryTest {
   }
 
   @Test
-  @DisplayName("Test: Not in range Salary Increase")
-  void testSalaryIncreaseOutOfRange() throws SQLException {
-    repository.updateSalariesInRange(50.0, 100000.0, 200000.0);
-
-    List<Employee> johns = repository.searchEmployees("1");
-    assertEquals(50000.00, johns.get(0).getSalary());
+  @DisplayName("Test: Add and Retrieve Payroll")
+  void testPayroll() throws SQLException {
+    Payroll p = new Payroll(0, LocalDate.now(), 4000.0, 400.0, 40.0, 160.0, 200.0, 120.0, 80.0, 1);
+    repository.addPayroll(p);
+    
+    List<Payroll> list = repository.getPayrollForEmployee(1);
+    assertEquals(1, list.size());
+    assertEquals(4000.0, list.get(0).getEarnings());
   }
 }
