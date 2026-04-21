@@ -45,12 +45,9 @@
 
 ## Database Setup
 
-Execute the schema script:
-
 ```bash
 # Unix
-sudo mysql < app/src/main/resources/db/schema.sql
+sh ./setup_db.sh
 
-# Windows (MySQL Command Line Client)
-source app/src/main/resources/db/schema.sql
+# Windows, just click and run the setup_db.ps1 file
 ```
