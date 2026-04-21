@@ -66,7 +66,7 @@ public class App extends Application {
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
-    searchField.setPromptText("Filter employees...");
+    searchField.setPromptText("Search by name, SSN, or ID...");
     searchField.setPrefWidth(350);
     searchField.setOnKeyReleased(e -> handleSearch());
 
@@ -107,6 +107,8 @@ public class App extends Application {
     primaryStage.setScene(scene);
     primaryStage.show();
 
+    jobTitleField.setEditable(false);
+    jobTitleField.setPromptText("View only");
     handleSearch();
   }
 
@@ -124,17 +126,21 @@ public class App extends Application {
     TableColumn<Employee, Double> salaryCol = new TableColumn<>("Salary");
     salaryCol.setCellValueFactory(new PropertyValueFactory<>("salary"));
     salaryCol.setCellFactory(
-        tc ->
-            new TableCell<>() {
-              @Override
-              protected void updateItem(Double val, boolean empty) {
-                super.updateItem(val, empty);
-                if (empty || val == null) setText(null);
-                else setText(String.format("$%,.2f", val));
-              }
-            });
+        tc -> new TableCell<>() {
+          @Override
+          protected void updateItem(Double val, boolean empty) {
+            super.updateItem(val, empty);
+            if (empty || val == null)
+              setText(null);
+            else
+              setText(String.format("$%,.2f", val));
+          }
+        });
 
-    table.getColumns().addAll(idCol, nameCol, ssnCol, salaryCol);
+    TableColumn<Employee, String> jobTitleCol = new TableColumn<>("Job Title");
+    jobTitleCol.setCellValueFactory(new PropertyValueFactory<>("jobTitle"));
+
+    table.getColumns().addAll(idCol, nameCol, ssnCol, salaryCol, jobTitleCol);
 
     table
         .getSelectionModel()
@@ -147,7 +153,6 @@ public class App extends Application {
                 ssnField.setText(newVal.getSsn());
                 salaryField.setText(String.valueOf(newVal.getSalary()));
                 jobTitleField.setText(newVal.getJobTitle());
-                divisionField.setText(newVal.getDivision());
                 updateStatus("Selected: " + newVal.getName());
               }
             });
@@ -171,7 +176,6 @@ public class App extends Application {
     addFormField(grid, "SSN", ssnField, 1);
     addFormField(grid, "Salary", salaryField, 2);
     addFormField(grid, "Job Title", jobTitleField, 3);
-    addFormField(grid, "Division", divisionField, 4);
 
     Button saveBtn = new Button("Save Changes");
     saveBtn.getStyleClass().add("button-primary");
@@ -220,11 +224,23 @@ public class App extends Application {
   }
 
   private void handleUpdate() {
-    if (selectedEmployee == null) return;
+    if (selectedEmployee == null) {
+      showAlert("No Selection", "Please select an employee first.");
+      return;
+    }
+
+    double parsedSalary;
     try {
-      selectedEmployee.setName(nameField.getText());
-      selectedEmployee.setSsn(ssnField.getText());
-      selectedEmployee.setSalary(Double.parseDouble(salaryField.getText()));
+      parsedSalary = Double.parseDouble(salaryField.getText().trim());
+    } catch (NumberFormatException e) {
+      showAlert("Error", "Salary must be a valid number.");
+      return;
+    }
+
+    try {
+      selectedEmployee.setName(nameField.getText().trim());
+      selectedEmployee.setSsn(ssnField.getText().trim());
+      selectedEmployee.setSalary(parsedSalary);
       selectedEmployee.setJobTitle(jobTitleField.getText());
       selectedEmployee.setDivision(divisionField.getText());
 
@@ -238,17 +254,66 @@ public class App extends Application {
   }
 
   private void handleSalaryIncrease(TextField p, TextField min, TextField max) {
-    try {
-      double pct = Double.parseDouble(p.getText());
-      double minSal = Double.parseDouble(min.getText());
-      double maxSal = Double.parseDouble(max.getText());
+    String pctInput = p.getText().trim();
+    String minInput = min.getText().trim();
+    String maxInput = max.getText().trim();
 
+    if (pctInput.isEmpty() || minInput.isEmpty() || maxInput.isEmpty()) {
+      showAlert(
+          "Missing Input",
+          "Enter all three values: percentage increase, minimum salary, and maximum salary.");
+      return;
+    }
+
+    String cleanedPct = pctInput.replace("%", "").trim();
+    String cleanedMin = minInput.replace(",", "").replace("$", "").replace(">", "").trim();
+    String cleanedMax = maxInput.replace(",", "").replace("$", "").replace("<", "").trim();
+
+    double pct;
+    double minSal;
+    double maxSal;
+
+    try {
+      pct = Double.parseDouble(cleanedPct);
+      minSal = Double.parseDouble(cleanedMin);
+      maxSal = Double.parseDouble(cleanedMax);
+    } catch (NumberFormatException e) {
+      showAlert(
+          "Invalid Salary Range Input",
+          "Use numbers only. Examples: 3.2, 50000, 100000. You can also type 3.2%, $50,000, or $100,000.");
+      return;
+    }
+
+    if (pct <= 0) {
+      showAlert("Invalid Percentage", "Percentage increase must be greater than 0.");
+      return;
+    }
+
+    if (minSal < 0 || maxSal < 0) {
+      showAlert("Invalid Salary Range", "Minimum and maximum salary must be 0 or greater.");
+      return;
+    }
+
+    if (minSal >= maxSal) {
+      showAlert(
+          "Invalid Salary Range",
+          "Minimum salary must be less than maximum salary. Example: 58000 and 105000.");
+      return;
+    }
+
+    try {
       repository.updateSalariesInRange(pct, minSal, maxSal);
       handleSearch();
-      updateStatus("Salaries updated successfully.");
-      showAlert("Success", "Salaries updated successfully.");
+      updateStatus(
+          String.format(
+              "Applied %.2f%% increase for salaries from $%,.2f up to $%,.2f.", pct, minSal, maxSal));
+      showAlert(
+          "Success",
+          String.format(
+              "Applied %.2f%% increase for employees with salaries from $%,.2f up to $%,.2f.",
+              pct, minSal, maxSal));
     } catch (Exception e) {
-      showAlert("Input Error", "Please enter valid numeric values for the salary range.");
+      showAlert("Database Error", "Could not update salaries: " + e.getMessage());
     }
   }
 
