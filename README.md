@@ -49,5 +49,6 @@
 # Unix
 sh ./setup_db.sh
 
-# Windows, just click and run the setup_db.ps1 file
+# Windows
+powershell.exe -ExecutionPolicy Bypass -File .\setup_db.ps1
 ```
