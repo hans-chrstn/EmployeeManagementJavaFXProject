@@ -5,7 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DbConfig {
-  private static final String URL = "jdbc:mysql://localhost:3306/employee_db";
+  private static final String URL = "jdbc:mysql://localhost:3306/EmployeeData3";
 
   // you need a .env or set your export DB_USER=youruser and DB_PASS=yourpass
   // setup that is

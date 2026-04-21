@@ -8,7 +8,8 @@ public class Employee {
   private String jobTitle;
   private String division;
 
-  public Employee() {}
+  public Employee() {
+  }
 
   public Employee(
       int empid, String name, String ssn, double salary, String jobTitle, String division) {
@@ -70,6 +71,6 @@ public class Employee {
 
   @Override
   public String toString() {
-    return "Employee [ID=]" + empid + ", Name=" + name + ", Salary=" + salary + "]";
+    return "Employee [ID=" + empid + ", Name=" + name + ", Salary=" + salary + "]";
   }
 }
