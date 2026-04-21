@@ -1,16 +1,27 @@
 package dev.project.employeemanagement;
 
+import dev.project.employeemanagement.model.Division;
 import dev.project.employeemanagement.model.Employee;
+import dev.project.employeemanagement.model.FullTimeEmployee;
+import dev.project.employeemanagement.model.JobTitle;
+import dev.project.employeemanagement.model.Payroll;
 import dev.project.employeemanagement.repository.EmployeeRepository;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.List;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Control;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TableCell;
@@ -24,6 +35,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 public class App extends Application {
@@ -33,10 +45,12 @@ public class App extends Application {
   private final Label statusLabel = new Label("System Ready");
 
   private final TextField nameField = new TextField();
+  private final TextField emailField = new TextField();
+  private final DatePicker hireDatePicker = new DatePicker();
   private final TextField ssnField = new TextField();
   private final TextField salaryField = new TextField();
-  private final TextField jobTitleField = new TextField();
-  private final TextField divisionField = new TextField();
+  private final ComboBox<JobTitle> jobTitleCombo = new ComboBox<>();
+  private final ComboBox<Division> divisionCombo = new ComboBox<>();
   private Employee selectedEmployee;
 
   @Override
@@ -101,15 +115,22 @@ public class App extends Application {
     try {
       scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
     } catch (Exception e) {
-      System.out.println("CSS could not be loaded.");
     }
 
     primaryStage.setScene(scene);
     primaryStage.show();
 
-    jobTitleField.setEditable(false);
-    jobTitleField.setPromptText("View only");
+    loadComboBoxes();
     handleSearch();
+  }
+
+  private void loadComboBoxes() {
+    try {
+      jobTitleCombo.setItems(FXCollections.observableArrayList(repository.getAllJobTitles()));
+      divisionCombo.setItems(FXCollections.observableArrayList(repository.getAllDivisions()));
+    } catch (SQLException e) {
+      showAlert("Database Error", "Failed to load Job Titles or Divisions: " + e.getMessage());
+    }
   }
 
   private void setupTable() {
@@ -120,8 +141,8 @@ public class App extends Application {
     TableColumn<Employee, String> nameCol = new TableColumn<>("Name");
     nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
 
-    TableColumn<Employee, String> ssnCol = new TableColumn<>("SSN");
-    ssnCol.setCellValueFactory(new PropertyValueFactory<>("ssn"));
+    TableColumn<Employee, String> emailCol = new TableColumn<>("Email");
+    emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
 
     TableColumn<Employee, Double> salaryCol = new TableColumn<>("Salary");
     salaryCol.setCellValueFactory(new PropertyValueFactory<>("salary"));
@@ -137,10 +158,10 @@ public class App extends Application {
           }
         });
 
-    TableColumn<Employee, String> jobTitleCol = new TableColumn<>("Job Title");
+    TableColumn<Employee, JobTitle> jobTitleCol = new TableColumn<>("Job Title");
     jobTitleCol.setCellValueFactory(new PropertyValueFactory<>("jobTitle"));
 
-    table.getColumns().addAll(idCol, nameCol, ssnCol, salaryCol, jobTitleCol);
+    table.getColumns().addAll(idCol, nameCol, emailCol, salaryCol, jobTitleCol);
 
     table
         .getSelectionModel()
@@ -150,9 +171,14 @@ public class App extends Application {
               if (newVal != null) {
                 selectedEmployee = newVal;
                 nameField.setText(newVal.getName());
+                emailField.setText(newVal.getEmail());
+                hireDatePicker.setValue(newVal.getHireDate());
                 ssnField.setText(newVal.getSsn());
                 salaryField.setText(String.valueOf(newVal.getSalary()));
-                jobTitleField.setText(newVal.getJobTitle());
+                
+                selectJobTitleInCombo(newVal.getJobTitle());
+                selectDivisionInCombo(newVal.getDivision());
+                
                 updateStatus("Selected: " + newVal.getName());
               }
             });
@@ -160,12 +186,38 @@ public class App extends Application {
     table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
   }
 
+  private void selectJobTitleInCombo(JobTitle target) {
+    if (target == null) {
+      jobTitleCombo.getSelectionModel().clearSelection();
+      return;
+    }
+    for (JobTitle item : jobTitleCombo.getItems()) {
+      if (item.getId() == target.getId()) {
+        jobTitleCombo.getSelectionModel().select(item);
+        break;
+      }
+    }
+  }
+
+  private void selectDivisionInCombo(Division target) {
+    if (target == null) {
+      divisionCombo.getSelectionModel().clearSelection();
+      return;
+    }
+    for (Division item : divisionCombo.getItems()) {
+      if (item.getId() == target.getId()) {
+        divisionCombo.getSelectionModel().select(item);
+        break;
+      }
+    }
+  }
+
   private VBox createDetailPane() {
     VBox container = new VBox(25);
     container.setPadding(new Insets(35));
     container.setPrefWidth(420);
 
-    Label sectionTitle = new Label("UPDATE SELECTED EMPLOYEE");
+    Label sectionTitle = new Label("MANAGE EMPLOYEE");
     sectionTitle.getStyleClass().add("section-header");
 
     GridPane grid = new GridPane();
@@ -173,14 +225,45 @@ public class App extends Application {
     grid.setVgap(18);
 
     addFormField(grid, "Name", nameField, 0);
-    addFormField(grid, "SSN", ssnField, 1);
-    addFormField(grid, "Salary", salaryField, 2);
-    addFormField(grid, "Job Title", jobTitleField, 3);
+    addFormField(grid, "Email", emailField, 1);
+    addFormField(grid, "Hire Date", hireDatePicker, 2);
+    addFormField(grid, "SSN", ssnField, 3);
+    addFormField(grid, "Salary", salaryField, 4);
+    
+    Label jtLabel = new Label("Job Title");
+    jtLabel.getStyleClass().add("form-label");
+    grid.add(jtLabel, 0, 5);
+    HBox jtBox = new HBox(5, jobTitleCombo, createSmallButton("+", e -> handleNewJobTitle()), createSmallButton("-", e -> handleDeleteJobTitle()));
+    jobTitleCombo.setMaxWidth(Double.MAX_VALUE);
+    HBox.setHgrow(jobTitleCombo, Priority.ALWAYS);
+    grid.add(jtBox, 1, 5);
 
-    Button saveBtn = new Button("Save Changes");
+    Label divLabel = new Label("Division");
+    divLabel.getStyleClass().add("form-label");
+    grid.add(divLabel, 0, 6);
+    HBox divBox = new HBox(5, divisionCombo, createSmallButton("+", e -> handleNewDivision()), createSmallButton("-", e -> handleDeleteDivision()));
+    divisionCombo.setMaxWidth(Double.MAX_VALUE);
+    HBox.setHgrow(divisionCombo, Priority.ALWAYS);
+    grid.add(divBox, 1, 6);
+
+    Button saveBtn = new Button("Update Selected");
     saveBtn.getStyleClass().add("button-primary");
     saveBtn.setMaxWidth(Double.MAX_VALUE);
     saveBtn.setOnAction(e -> handleUpdate());
+
+    Button addBtn = new Button("Add as New Employee");
+    addBtn.getStyleClass().add("button-success");
+    addBtn.setMaxWidth(Double.MAX_VALUE);
+    addBtn.setOnAction(e -> handleAdd());
+
+    Button deleteBtn = new Button("Delete Selected");
+    deleteBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white;");
+    deleteBtn.setMaxWidth(Double.MAX_VALUE);
+    deleteBtn.setOnAction(e -> handleDelete());
+
+    Button payrollBtn = new Button("View Payroll History");
+    payrollBtn.setMaxWidth(Double.MAX_VALUE);
+    payrollBtn.setOnAction(e -> handleViewPayroll());
 
     Separator sep = new Separator();
     Label batchTitle = new Label("BATCH SALARY INCREASE");
@@ -201,16 +284,25 @@ public class App extends Application {
 
     container
         .getChildren()
-        .addAll(sectionTitle, grid, saveBtn, sep, batchTitle, batchInput, batchBtn);
+        .addAll(sectionTitle, grid, saveBtn, addBtn, deleteBtn, payrollBtn, sep, batchTitle, batchInput, batchBtn);
     return container;
   }
 
-  private void addFormField(GridPane grid, String labelText, TextField field, int row) {
+  private Button createSmallButton(String text, EventHandler<ActionEvent> handler) {
+    Button b = new Button(text);
+    b.setOnAction(handler);
+    return b;
+  }
+
+  private void addFormField(GridPane grid, String labelText, Control field, int row) {
     Label label = new Label(labelText);
     label.getStyleClass().add("form-label");
     grid.add(label, 0, row);
     grid.add(field, 1, row);
     GridPane.setHgrow(field, Priority.ALWAYS);
+    if (field instanceof Region) {
+        ((Region) field).setMaxWidth(Double.MAX_VALUE);
+    }
   }
 
   private void handleSearch() {
@@ -228,29 +320,244 @@ public class App extends Application {
       showAlert("No Selection", "Please select an employee first.");
       return;
     }
+    if (validateInput()) {
+        try {
+          fillEmployeeData(selectedEmployee);
+          repository.updateEmployee(selectedEmployee);
+          handleSearch();
+          updateStatus("Employee updated successfully.");
+        } catch (Exception e) {
+          showAlert("Error", "Update failed: " + e.getMessage());
+        }
+    }
+  }
 
-    double parsedSalary;
-    try {
-      parsedSalary = Double.parseDouble(salaryField.getText().trim());
-    } catch (NumberFormatException e) {
-      showAlert("Error", "Salary must be a valid number.");
-      return;
+  private void handleAdd() {
+    if (validateInput()) {
+        try {
+            Employee newEmp = new FullTimeEmployee();
+            fillEmployeeData(newEmp);
+            repository.addEmployee(newEmp);
+            handleSearch();
+            updateStatus("Employee added successfully.");
+        } catch (Exception e) {
+            showAlert("Error", "Add failed: " + e.getMessage());
+        }
+    }
+  }
+
+  private void handleDelete() {
+    if (selectedEmployee == null) {
+        showAlert("No Selection", "Please select an employee to delete.");
+        return;
+    }
+    
+    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Delete " + selectedEmployee.getName() + "?", ButtonType.YES, ButtonType.NO);
+    confirm.showAndWait().ifPresent(response -> {
+        if (response == ButtonType.YES) {
+            try {
+                repository.deleteEmployee(selectedEmployee.getEmpid());
+                handleSearch();
+                selectedEmployee = null;
+                clearForm();
+                updateStatus("Employee deleted.");
+            } catch (SQLException e) {
+                showAlert("Error", "Delete failed: " + e.getMessage());
+            }
+        }
+    });
+  }
+
+  private void handleViewPayroll() {
+    if (selectedEmployee == null) {
+        showAlert("No Selection", "Please select an employee first.");
+        return;
     }
 
-    try {
-      selectedEmployee.setName(nameField.getText().trim());
-      selectedEmployee.setSsn(ssnField.getText().trim());
-      selectedEmployee.setSalary(parsedSalary);
-      selectedEmployee.setJobTitle(jobTitleField.getText());
-      selectedEmployee.setDivision(divisionField.getText());
+    Stage dialog = new Stage();
+    dialog.initModality(Modality.APPLICATION_MODAL);
+    dialog.setTitle("Payroll History - " + selectedEmployee.getName());
 
-      repository.updateEmployee(selectedEmployee);
-      handleSearch();
-      updateStatus("Employee updated successfully.");
-      showAlert("Success", "Employee updated successfully.");
+    TableView<Payroll> payrollTable = new TableView<>();
+    TableColumn<Payroll, LocalDate> dateCol = new TableColumn<>("Date");
+    dateCol.setCellValueFactory(new PropertyValueFactory<>("payDate"));
+    
+    TableColumn<Payroll, Double> earningsCol = new TableColumn<>("Earnings");
+    earningsCol.setCellValueFactory(new PropertyValueFactory<>("earnings"));
+
+    payrollTable.getColumns().addAll(dateCol, earningsCol);
+
+    try {
+        payrollTable.setItems(FXCollections.observableArrayList(repository.getPayrollForEmployee(selectedEmployee.getEmpid())));
+    } catch (SQLException e) {
+        showAlert("Error", "Failed to load payroll.");
+    }
+
+    VBox layout = new VBox(10, new Label("Payroll records for ID: " + selectedEmployee.getEmpid()), payrollTable);
+    layout.setPadding(new Insets(20));
+    dialog.setScene(new Scene(layout, 400, 400));
+    dialog.show();
+  }
+
+  private void handleNewDivision() {
+    Stage dialog = new Stage();
+    dialog.initModality(Modality.APPLICATION_MODAL);
+    dialog.setResizable(false);
+    dialog.setTitle("New Division");
+
+    GridPane grid = new GridPane();
+    grid.setPadding(new Insets(15));
+    grid.setHgap(10);
+    grid.setVgap(10);
+
+    TextField name = new TextField();
+    TextField city = new TextField();
+    TextField addr1 = new TextField();
+    TextField addr2 = new TextField();
+    TextField state = new TextField();
+    TextField country = new TextField();
+    TextField zip = new TextField();
+
+    grid.add(new Label("Name:"), 0, 0); grid.add(name, 1, 0);
+    grid.add(new Label("City:"), 0, 1); grid.add(city, 1, 1);
+    grid.add(new Label("Address 1:"), 0, 2); grid.add(addr1, 1, 2);
+    grid.add(new Label("Address 2:"), 0, 3); grid.add(addr2, 1, 3);
+    grid.add(new Label("State:"), 0, 4); grid.add(state, 1, 4);
+    grid.add(new Label("Country:"), 0, 5); grid.add(country, 1, 5);
+    grid.add(new Label("Zip:"), 0, 6); grid.add(zip, 1, 6);
+
+    Button save = new Button("Save Division");
+    save.setMaxWidth(Double.MAX_VALUE);
+    save.setOnAction(e -> {
+        try {
+            Division d = new Division(0, name.getText(), city.getText(), addr1.getText(), addr2.getText(), state.getText(), country.getText(), zip.getText());
+            repository.addDivision(d);
+            loadComboBoxes();
+            dialog.close();
+        } catch (SQLException ex) {
+            showAlert("Error", "Failed to save.");
+        }
+    });
+
+    VBox layout = new VBox(15, grid, save);
+    layout.setPadding(new Insets(10));
+    layout.setAlignment(Pos.CENTER);
+
+    Scene scene = new Scene(layout);
+    try {
+        scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+    } catch (Exception e) {}
+    
+    dialog.setScene(scene);
+    dialog.sizeToScene();
+    dialog.show();
+  }
+
+  private void handleNewJobTitle() {
+    Stage dialog = new Stage();
+    dialog.initModality(Modality.APPLICATION_MODAL);
+    dialog.setResizable(false);
+    dialog.setTitle("New Job Title");
+
+    TextField titleField = new TextField();
+    titleField.setPromptText("Enter title...");
+    
+    Button save = new Button("Save Title");
+    save.setMaxWidth(Double.MAX_VALUE);
+    save.setOnAction(e -> {
+        try {
+            JobTitle jt = new JobTitle(0, titleField.getText());
+            repository.addJobTitle(jt);
+            loadComboBoxes();
+            dialog.close();
+        } catch (SQLException ex) {
+            showAlert("Error", "Failed to save.");
+        }
+    });
+
+    VBox layout = new VBox(15, new Label("Job Title:"), titleField, save);
+    layout.setPadding(new Insets(20));
+    layout.setAlignment(Pos.CENTER);
+
+    Scene scene = new Scene(layout);
+    try {
+        scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+    } catch (Exception e) {}
+
+    dialog.setScene(scene);
+    dialog.sizeToScene();
+    dialog.show();
+  }
+
+  private void handleDeleteJobTitle() {
+    JobTitle selected = jobTitleCombo.getValue();
+    if (selected == null) {
+        showAlert("No Selection", "Select a job title from the list to delete.");
+        return;
+    }
+    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Delete Job Title: " + selected.getTitle() + "? This will also remove it from any linked employees.", ButtonType.YES, ButtonType.NO);
+    confirm.showAndWait().ifPresent(r -> {
+        if (r == ButtonType.YES) {
+            try {
+                repository.deleteJobTitle(selected.getId());
+                loadComboBoxes();
+                updateStatus("Job Title deleted.");
+            } catch (SQLException e) {
+                showAlert("Error", "Could not delete: " + e.getMessage());
+            }
+        }
+    });
+  }
+
+  private void handleDeleteDivision() {
+    Division selected = divisionCombo.getValue();
+    if (selected == null) {
+        showAlert("No Selection", "Select a division from the list to delete.");
+        return;
+    }
+    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Delete Division: " + selected.getName() + "? This will also remove it from any linked employees.", ButtonType.YES, ButtonType.NO);
+    confirm.showAndWait().ifPresent(r -> {
+        if (r == ButtonType.YES) {
+            try {
+                repository.deleteDivision(selected.getId());
+                loadComboBoxes();
+                updateStatus("Division deleted.");
+            } catch (SQLException e) {
+                showAlert("Error", "Could not delete: " + e.getMessage());
+            }
+        }
+    });
+  }
+
+  private boolean validateInput() {
+    try {
+        Double.parseDouble(salaryField.getText().trim());
+        if (nameField.getText().trim().isEmpty()) throw new Exception("Name required");
+        return true;
     } catch (Exception e) {
-      showAlert("Error", "Check your inputs and try again: " + e.getMessage());
+        showAlert("Validation Error", "Invalid input: " + e.getMessage());
+        return false;
     }
+  }
+
+  private void fillEmployeeData(Employee emp) {
+    emp.setName(nameField.getText().trim());
+    emp.setEmail(emailField.getText().trim());
+    emp.setHireDate(hireDatePicker.getValue());
+    emp.setSsn(ssnField.getText().trim());
+    emp.setSalary(Double.parseDouble(salaryField.getText().trim()));
+    emp.setJobTitle(jobTitleCombo.getValue());
+    emp.setDivision(divisionCombo.getValue());
+  }
+
+  private void clearForm() {
+    nameField.clear();
+    emailField.clear();
+    hireDatePicker.setValue(null);
+    ssnField.clear();
+    salaryField.clear();
+    jobTitleCombo.getSelectionModel().clearSelection();
+    divisionCombo.getSelectionModel().clearSelection();
   }
 
   private void handleSalaryIncrease(TextField p, TextField min, TextField max) {
@@ -259,61 +566,20 @@ public class App extends Application {
     String maxInput = max.getText().trim();
 
     if (pctInput.isEmpty() || minInput.isEmpty() || maxInput.isEmpty()) {
-      showAlert(
-          "Missing Input",
-          "Enter all three values: percentage increase, minimum salary, and maximum salary.");
-      return;
-    }
-
-    String cleanedPct = pctInput.replace("%", "").trim();
-    String cleanedMin = minInput.replace(",", "").replace("$", "").replace(">", "").trim();
-    String cleanedMax = maxInput.replace(",", "").replace("$", "").replace("<", "").trim();
-
-    double pct;
-    double minSal;
-    double maxSal;
-
-    try {
-      pct = Double.parseDouble(cleanedPct);
-      minSal = Double.parseDouble(cleanedMin);
-      maxSal = Double.parseDouble(cleanedMax);
-    } catch (NumberFormatException e) {
-      showAlert(
-          "Invalid Salary Range Input",
-          "Use numbers only. Examples: 3.2, 50000, 100000. You can also type 3.2%, $50,000, or $100,000.");
-      return;
-    }
-
-    if (pct <= 0) {
-      showAlert("Invalid Percentage", "Percentage increase must be greater than 0.");
-      return;
-    }
-
-    if (minSal < 0 || maxSal < 0) {
-      showAlert("Invalid Salary Range", "Minimum and maximum salary must be 0 or greater.");
-      return;
-    }
-
-    if (minSal >= maxSal) {
-      showAlert(
-          "Invalid Salary Range",
-          "Minimum salary must be less than maximum salary. Example: 58000 and 105000.");
+      showAlert("Missing Input", "Enter all three values.");
       return;
     }
 
     try {
+      double pct = Double.parseDouble(pctInput.replace("%", ""));
+      double minSal = Double.parseDouble(minInput.replace("$", "").replace(",", ""));
+      double maxSal = Double.parseDouble(maxInput.replace("$", "").replace(",", ""));
+
       repository.updateSalariesInRange(pct, minSal, maxSal);
       handleSearch();
-      updateStatus(
-          String.format(
-              "Applied %.2f%% increase for salaries from $%,.2f up to $%,.2f.", pct, minSal, maxSal));
-      showAlert(
-          "Success",
-          String.format(
-              "Applied %.2f%% increase for employees with salaries from $%,.2f up to $%,.2f.",
-              pct, minSal, maxSal));
+      showAlert("Success", "Salaries updated.");
     } catch (Exception e) {
-      showAlert("Database Error", "Could not update salaries: " + e.getMessage());
+      showAlert("Invalid Input", "Please enter valid numbers.");
     }
   }
 

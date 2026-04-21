@@ -1,22 +1,37 @@
 package dev.project.employeemanagement.model;
 
-public class Employee {
-  private int empid;
-  private String name;
-  private String ssn;
-  private double salary;
-  private String jobTitle;
-  private String division;
+import java.time.LocalDate;
 
-  public Employee() {
-  }
+public abstract class Employee {
+  private int empid;
+  private String fName;
+  private String lName;
+  private String email;
+  private LocalDate hireDate;
+  private double salary;
+  private String ssn;
+  private JobTitle jobTitle;
+  private Division division;
+
+  public Employee() {}
 
   public Employee(
-      int empid, String name, String ssn, double salary, String jobTitle, String division) {
+      int empid,
+      String fName,
+      String lName,
+      String email,
+      LocalDate hireDate,
+      double salary,
+      String ssn,
+      JobTitle jobTitle,
+      Division division) {
     this.empid = empid;
-    this.name = name;
-    this.ssn = ssn;
+    this.fName = fName;
+    this.lName = lName;
+    this.email = email;
+    this.hireDate = hireDate;
     this.salary = salary;
+    this.ssn = ssn;
     this.jobTitle = jobTitle;
     this.division = division;
   }
@@ -30,11 +45,50 @@ public class Employee {
   }
 
   public String getName() {
-    return name;
+    return fName + " " + lName;
   }
 
   public void setName(String name) {
-    this.name = name;
+    if (name != null && name.contains(" ")) {
+      String[] parts = name.split(" ", 2);
+      this.fName = parts[0];
+      this.lName = parts[1];
+    } else {
+      this.fName = name;
+      this.lName = "";
+    }
+  }
+
+  public String getFname() {
+    return fName;
+  }
+
+  public void setFname(String fName) {
+    this.fName = fName;
+  }
+
+  public String getLname() {
+    return lName;
+  }
+
+  public void setLname(String lName) {
+    this.lName = lName;
+  }
+
+  public String getEmail() {
+    return email;
+  }
+
+  public void setEmail(String email) {
+    this.email = email;
+  }
+
+  public LocalDate getHireDate() {
+    return hireDate;
+  }
+
+  public void setHireDate(LocalDate hireDate) {
+    this.hireDate = hireDate;
   }
 
   public double getSalary() {
@@ -53,24 +107,26 @@ public class Employee {
     this.ssn = ssn;
   }
 
-  public String getJobTitle() {
+  public JobTitle getJobTitle() {
     return jobTitle;
   }
 
-  public void setJobTitle(String jobTitle) {
+  public void setJobTitle(JobTitle jobTitle) {
     this.jobTitle = jobTitle;
   }
 
-  public String getDivision() {
+  public Division getDivision() {
     return division;
   }
 
-  public void setDivision(String division) {
+  public void setDivision(Division division) {
     this.division = division;
   }
 
   @Override
   public String toString() {
-    return "Employee [ID=" + empid + ", Name=" + name + ", Salary=" + salary + "]";
+    return "Employee [ID=" + empid + ", Name=" + fName + " " + lName + ", Salary=" + salary + "]";
   }
+
+  public abstract double calculateMonthlyPay();
 }
