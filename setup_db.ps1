@@ -1,3 +1,6 @@
+$securePass = Read-Host "Enter MySQL root password" -AsSecureString
+$rootPass = [System.Net.NetworkCredential]::new("", $securePass).Password
+
 if (Test-Path .env) {
   Get-Content .env | ForEach-Object {
     $name, $value = $_.Split('=')
@@ -19,11 +22,11 @@ GRANT ALL PRIVILEGES ON employee_db.* TO '$env:DB_USER'@'localhost';
 FLUSH PRIVILEGES;
 "@
 
-$sql | mysql -u root -p
+$sql | & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p"$rootPass"
 Write-Host "Granted privileges to '$env:DB_USER' on db: employee_db"
 
 # apply schema
-Write-Host "Appling schema..."
-Get-Content app/src/main/resources/db/schema.sql | mysql -u root -p employee_db
+Write-Host "Applying schema..."
+Get-Content app/src/main/resources/db/schema.sql | & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u "$env:DB_USER" -p"$env:DB_PASS" employee_db
 
 Write-Host "done"
