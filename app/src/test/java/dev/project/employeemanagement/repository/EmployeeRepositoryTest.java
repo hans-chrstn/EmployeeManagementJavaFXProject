@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.List;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,20 @@ import org.junit.jupiter.api.TestInstance;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class EmployeeRepositoryTest {
   private EmployeeRepository repository;
+
+  @BeforeAll
+  public void init() throws SQLException {
+    System.setProperty("test.db", "true");
+    try (Connection conn = DbConfig.getConnection();
+        Statement stmt = conn.createStatement()) {
+      stmt.execute("CREATE TABLE IF NOT EXISTS employees (empid INT AUTO_INCREMENT PRIMARY KEY, Fname VARCHAR(50), Lname VARCHAR(50), email VARCHAR(100), HireDate DATE, Salary DECIMAL(12, 2), SSN VARCHAR(9))");
+      stmt.execute("CREATE TABLE IF NOT EXISTS job_titles (job_title_id INT AUTO_INCREMENT PRIMARY KEY, job_title VARCHAR(100))");
+      stmt.execute("CREATE TABLE IF NOT EXISTS employee_job_titles (empid INT, job_title_id INT, PRIMARY KEY (empid, job_title_id))");
+      stmt.execute("CREATE TABLE IF NOT EXISTS division (ID INT AUTO_INCREMENT PRIMARY KEY, Name VARCHAR(100), city VARCHAR(50), addressLine1 VARCHAR(100), addressLine2 VARCHAR(100), state VARCHAR(50), country VARCHAR(50), postalCode VARCHAR(20))");
+      stmt.execute("CREATE TABLE IF NOT EXISTS employee_division (empid INT, div_ID INT, PRIMARY KEY (empid, div_ID))");
+      stmt.execute("CREATE TABLE IF NOT EXISTS payroll (payID INT AUTO_INCREMENT PRIMARY KEY, pay_date DATE, earnings DECIMAL(12, 2), fed_tax DECIMAL(12, 2), fed_med DECIMAL(12, 2), fed_ss DECIMAL(12, 2), state_tax DECIMAL(12, 2), retire_401k DECIMAL(12, 2), health_care DECIMAL(12, 2), empid INT)");
+    }
+  }
 
   @BeforeEach
   public void setup() throws SQLException {
