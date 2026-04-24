@@ -1,12 +1,5 @@
 # Group project for Software Development 2026
 
-## STRUCTURE
-
-- DATABASE STRUCUTRE LOC: `app/src/main/resources/db/schema.sql`
-
-  > this contains the database strucutre and salary ranges
-  > (basically the src of truth of our db)
-
 ## Prerequisites
 
 - **Java 21** or higher.
@@ -58,3 +51,17 @@ powershell.exe -ExecutionPolicy Bypass -File .\setup_db.ps1
     ```cmd
     gradlew.bat test
     ```
+
+## Current App Features
+
+- Centralized navigation interface via JavaFX
+- Real-time filtering by name, SSN, and employee ID
+- Direct record management and updates via synchronized detail forms
+- Dynamic configuration of divisions and job titles
+- Accurate hire date entry and tracking via integrated date picker
+- Salary adjustments across specified percentage and pay ranges via batch processing
+- Individual payment record tracking and retrieval
+- Data consistency for relational table updates via transactional integrity
+- Extensible employee classifications via object-oriented inheritance models
+- Decoupled data persistence via repository pattern abstraction
+- Secure test execution via isolated H2 database environment (So that test runs don't ruin pre-existing database which was a bug before)
