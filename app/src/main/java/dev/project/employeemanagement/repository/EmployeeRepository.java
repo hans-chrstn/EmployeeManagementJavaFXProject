@@ -1,6 +1,8 @@
 package dev.project.employeemanagement.repository;
 
 import dev.project.employeemanagement.model.Employee;
+import dev.project.employeemanagement.model.PayHistoryEntry;
+import dev.project.employeemanagement.model.ReportEntry;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -14,12 +16,13 @@ public class EmployeeRepository {
     String normalizedSsn = normalizedQuery.replaceAll("[^0-9]", "");
 
     String sql = "SELECT e.empid, CONCAT(e.Fname, ' ', e.Lname) AS name, e.SSN, e.Salary, " +
-        "jt.job_title, d.Name AS division " +
+        "(SELECT jt.job_title FROM employee_job_titles ejt " +
+        "  JOIN job_titles jt ON ejt.job_title_id = jt.job_title_id " +
+        "  WHERE ejt.empid = e.empid LIMIT 1) AS job_title, " +
+        "(SELECT d.Name FROM employee_division ed " +
+        "  JOIN division d ON ed.div_ID = d.ID " +
+        "  WHERE ed.empid = e.empid LIMIT 1) AS division " +
         "FROM employees e " +
-        "LEFT JOIN employee_job_titles ejt ON e.empid = ejt.empid " +
-        "LEFT JOIN job_titles jt ON ejt.job_title_id = jt.job_title_id " +
-        "LEFT JOIN employee_division ed ON e.empid = ed.empid " +
-        "LEFT JOIN division d ON ed.div_ID = d.ID " +
         "WHERE ? = '' " +
         "OR CONCAT(e.Fname, ' ', e.Lname) LIKE ? " +
         "OR e.Fname LIKE ? " +
@@ -57,14 +60,14 @@ public class EmployeeRepository {
     String[] parts = emp.getName().split(" ", 2);
     String fName = parts.length > 0 ? parts[0] : "";
     String lName = parts.length > 1 ? parts[1] : "";
-    String normalizedSsn = emp.getSsn() == null ? "" : emp.getSsn().replaceAll("[^0-9]", "");
+    String ssn = emp.getSsn() == null ? "" : emp.getSsn();
 
     try (Connection conn = DbConfig.getConnection();
         PreparedStatement stmt = conn.prepareStatement(sql)) {
 
       stmt.setString(1, fName);
       stmt.setString(2, lName);
-      stmt.setString(3, normalizedSsn);
+      stmt.setString(3, ssn);
       stmt.setDouble(4, emp.getSalary());
       stmt.setInt(5, emp.getEmpid());
 
@@ -140,6 +143,97 @@ public class EmployeeRepository {
         conn.setAutoCommit(true);
       }
     }
+  }
+
+  public List<PayHistoryEntry> getPayHistory(int month, int year) throws SQLException {
+    String sql =
+        "SELECT e.empid, CONCAT(e.Fname, ' ', e.Lname) AS name, e.SSN, "
+        + "(SELECT jt.job_title FROM employee_job_titles ejt "
+        + " JOIN job_titles jt ON ejt.job_title_id = jt.job_title_id "
+        + " WHERE ejt.empid = e.empid LIMIT 1) AS job_title, "
+        + "(SELECT d.Name FROM employee_division ed "
+        + " JOIN division d ON ed.div_ID = d.ID "
+        + " WHERE ed.empid = e.empid LIMIT 1) AS division, "
+        + "DATE_FORMAT(p.pay_date, '%Y-%m-%d') AS pay_date, "
+        + "p.earnings, p.fed_tax, p.fed_med, p.fed_ss, p.state_tax, p.retire_401k, p.health_care "
+        + "FROM employees e "
+        + "JOIN payroll p ON e.empid = p.empid "
+        + "WHERE MONTH(p.pay_date) = ? AND YEAR(p.pay_date) = ? "
+        + "ORDER BY e.Lname, e.Fname, p.pay_date";
+
+    List<PayHistoryEntry> results = new ArrayList<>();
+    try (Connection conn = DbConfig.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setInt(1, month);
+      stmt.setInt(2, year);
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          results.add(new PayHistoryEntry(
+              rs.getInt("empid"),
+              rs.getString("name"),
+              rs.getString("SSN"),
+              rs.getString("job_title"),
+              rs.getString("division"),
+              rs.getString("pay_date"),
+              rs.getDouble("earnings"),
+              rs.getDouble("fed_tax"),
+              rs.getDouble("fed_med"),
+              rs.getDouble("fed_ss"),
+              rs.getDouble("state_tax"),
+              rs.getDouble("retire_401k"),
+              rs.getDouble("health_care")));
+        }
+      }
+    }
+    return results;
+  }
+
+  public List<ReportEntry> getTotalPayByJobTitle(int month, int year) throws SQLException {
+    String sql =
+        "SELECT jt.job_title AS label, SUM(p.earnings) AS total "
+        + "FROM payroll p "
+        + "JOIN employee_job_titles ejt ON p.empid = ejt.empid "
+        + "JOIN job_titles jt ON ejt.job_title_id = jt.job_title_id "
+        + "WHERE MONTH(p.pay_date) = ? AND YEAR(p.pay_date) = ? "
+        + "GROUP BY jt.job_title "
+        + "ORDER BY total DESC";
+
+    List<ReportEntry> results = new ArrayList<>();
+    try (Connection conn = DbConfig.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setInt(1, month);
+      stmt.setInt(2, year);
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          results.add(new ReportEntry(rs.getString("label"), rs.getDouble("total")));
+        }
+      }
+    }
+    return results;
+  }
+
+  public List<ReportEntry> getTotalPayByDivision(int month, int year) throws SQLException {
+    String sql =
+        "SELECT d.Name AS label, SUM(p.earnings) AS total "
+        + "FROM payroll p "
+        + "JOIN employee_division ed ON p.empid = ed.empid "
+        + "JOIN division d ON ed.div_ID = d.ID "
+        + "WHERE MONTH(p.pay_date) = ? AND YEAR(p.pay_date) = ? "
+        + "GROUP BY d.Name "
+        + "ORDER BY total DESC";
+
+    List<ReportEntry> results = new ArrayList<>();
+    try (Connection conn = DbConfig.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setInt(1, month);
+      stmt.setInt(2, year);
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          results.add(new ReportEntry(rs.getString("label"), rs.getDouble("total")));
+        }
+      }
+    }
+    return results;
   }
 
   public Employee mapRow(ResultSet rs) throws SQLException {
