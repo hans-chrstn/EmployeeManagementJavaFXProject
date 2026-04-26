@@ -6,6 +6,8 @@ import dev.project.employeemanagement.model.JobTitle;
 import dev.project.employeemanagement.model.Payroll;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
+import dev.project.employeemanagement.model.ReportEntry;
 
 public interface IEmployeeRepository {
   List<Employee> searchEmployees(String query) throws SQLException;
@@ -34,4 +36,8 @@ public interface IEmployeeRepository {
   void deleteDivision(int id) throws SQLException;
 
   void deleteJobTitle(int id) throws SQLException;
+
+  List<ReportEntry> getTotalPayByJobTitle(int month, int year) throws SQLException;
+
+  List<ReportEntry> getTotalPayByDivision(int month, int year) throws SQLException;
 }

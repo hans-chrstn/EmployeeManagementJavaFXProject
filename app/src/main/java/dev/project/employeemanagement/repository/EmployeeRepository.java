@@ -5,6 +5,7 @@ import dev.project.employeemanagement.model.Employee;
 import dev.project.employeemanagement.model.FullTimeEmployee;
 import dev.project.employeemanagement.model.JobTitle;
 import dev.project.employeemanagement.model.Payroll;
+import dev.project.employeemanagement.model.ReportEntry;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -318,6 +319,50 @@ public class EmployeeRepository implements IEmployeeRepository {
       stmt.setInt(1, id);
       stmt.executeUpdate();
     }
+  }
+
+  @Override
+  public List<ReportEntry> getTotalPayByJobTitle(int month, int year) throws SQLException {
+    String sql = "SELECT jt.job_title, SUM(p.earnings) as total " +
+                 "FROM payroll p " +
+                 "JOIN employee_job_titles ejt ON p.empid = ejt.empid " +
+                 "JOIN job_titles jt ON ejt.job_title_id = jt.job_title_id " +
+                 "WHERE MONTH(p.pay_date) = ? AND YEAR(p.pay_date) = ? " +
+                 "GROUP BY jt.job_title";
+    List<ReportEntry> results = new ArrayList<>();
+    try (Connection conn = DbConfig.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setInt(1, month);
+      stmt.setInt(2, year);
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          results.add(new ReportEntry(rs.getString("job_title"), rs.getDouble("total")));
+        }
+      }
+    }
+    return results;
+  }
+
+  @Override
+  public List<ReportEntry> getTotalPayByDivision(int month, int year) throws SQLException {
+    String sql = "SELECT d.Name, SUM(p.earnings) as total " +
+                 "FROM payroll p " +
+                 "JOIN employee_division ed ON p.empid = ed.empid " +
+                 "JOIN division d ON ed.div_ID = d.ID " +
+                 "WHERE MONTH(p.pay_date) = ? AND YEAR(p.pay_date) = ? " +
+                 "GROUP BY d.Name";
+    List<ReportEntry> results = new ArrayList<>();
+    try (Connection conn = DbConfig.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setInt(1, month);
+      stmt.setInt(2, year);
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          results.add(new ReportEntry(rs.getString("Name"), rs.getDouble("total")));
+        }
+      }
+    }
+    return results;
   }
 
   public Employee mapRow(ResultSet rs) throws SQLException {

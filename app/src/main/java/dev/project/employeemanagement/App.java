@@ -5,6 +5,7 @@ import dev.project.employeemanagement.model.Employee;
 import dev.project.employeemanagement.model.FullTimeEmployee;
 import dev.project.employeemanagement.model.JobTitle;
 import dev.project.employeemanagement.model.Payroll;
+import dev.project.employeemanagement.model.ReportEntry;
 import dev.project.employeemanagement.repository.EmployeeRepository;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -43,6 +44,8 @@ public class App extends Application {
   private final TableView<Employee> table = new TableView<>();
   private final TextField searchField = new TextField();
   private final Label statusLabel = new Label("System Ready");
+  private final BorderPane root = new BorderPane();
+  private VBox dbView;
 
   private final TextField nameField = new TextField();
   private final TextField emailField = new TextField();
@@ -61,15 +64,54 @@ public class App extends Application {
     navRail.getStyleClass().add("nav-rail");
     navRail.setPrefWidth(240);
 
-    Label brand = new Label("COMPANY Z");
+    Label brand = new Label("Company Z");
     brand.getStyleClass().add("brand-title");
 
     Button employeesBtn = new Button("Employee Database");
     employeesBtn.getStyleClass().addAll("nav-button", "nav-button-active");
     employeesBtn.setMaxWidth(Double.MAX_VALUE);
 
-    navRail.getChildren().addAll(brand, employeesBtn);
+    Button reportsBtn = new Button("Analytics");
+    reportsBtn.getStyleClass().add("nav-button");
+    reportsBtn.setMaxWidth(Double.MAX_VALUE);
 
+    employeesBtn.setOnAction(e -> {
+      root.setCenter(dbView);
+      employeesBtn.getStyleClass().add("nav-button-active");
+      reportsBtn.getStyleClass().remove("nav-button-active");
+    });
+
+    reportsBtn.setOnAction(e -> {
+      showReportsView();
+      reportsBtn.getStyleClass().add("nav-button-active");
+      employeesBtn.getStyleClass().remove("nav-button-active");
+    });
+
+    navRail.getChildren().addAll(brand, employeesBtn, reportsBtn);
+
+    dbView = createDbView();
+    
+    HBox statusBar = new HBox(statusLabel);
+    statusBar.getStyleClass().add("status-bar");
+
+    root.setLeft(navRail);
+    root.setCenter(dbView);
+    root.setBottom(statusBar);
+
+    Scene scene = new Scene(root, 1500, 950);
+    try {
+      scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+    } catch (Exception e) {
+    }
+
+    primaryStage.setScene(scene);
+    primaryStage.show();
+
+    loadComboBoxes();
+    handleSearch();
+  }
+
+  private VBox createDbView() {
     HBox header = new HBox();
     header.getStyleClass().add("header-area");
     header.setAlignment(Pos.CENTER_LEFT);
@@ -102,26 +144,96 @@ public class App extends Application {
     VBox contentArea = new VBox(header, workspace);
     contentArea.getStyleClass().add("content-area");
     VBox.setVgrow(workspace, Priority.ALWAYS);
+    
+    return contentArea;
+  }
 
-    HBox statusBar = new HBox(statusLabel);
-    statusBar.getStyleClass().add("status-bar");
+  private void showReportsView() {
+    HBox header = new HBox();
+    header.getStyleClass().add("header-area");
+    header.setAlignment(Pos.CENTER_LEFT);
 
-    BorderPane root = new BorderPane();
-    root.setLeft(navRail);
-    root.setCenter(contentArea);
-    root.setBottom(statusBar);
+    Label title = new Label("Analytics");
+    title.getStyleClass().add("header-title");
+    header.getChildren().add(title);
 
-    Scene scene = new Scene(root, 1500, 950);
+    VBox container = new VBox(30);
+    container.setPadding(new Insets(40));
+    container.getStyleClass().add("content-area");
+
+    HBox selectors = new HBox(15);
+    selectors.setAlignment(Pos.CENTER_LEFT);
+    ComboBox<Integer> monthBox = new ComboBox<>(FXCollections.observableArrayList(1,2,3,4,5,6,7,8,9,10,11,12));
+    monthBox.setValue(LocalDate.now().getMonthValue());
+    ComboBox<Integer> yearBox = new ComboBox<>(FXCollections.observableArrayList(2023, 2024, 2025, 2026));
+    yearBox.setValue(LocalDate.now().getYear());
+    Button runBtn = new Button("Generate Summary Reports");
+    runBtn.getStyleClass().add("button-primary");
+
+    selectors.getChildren().addAll(new Label("Select Period:"), monthBox, yearBox, runBtn);
+
+    HBox reportsGrid = new HBox(30);
+    VBox.setVgrow(reportsGrid, Priority.ALWAYS);
+
+    VBox jobTitleReport = createReportCard("Payroll Summary by Position");
+    VBox divisionReport = createReportCard("Payroll Summary by Department");
+    HBox.setHgrow(jobTitleReport, Priority.ALWAYS);
+    HBox.setHgrow(divisionReport, Priority.ALWAYS);
+
+    reportsGrid.getChildren().addAll(jobTitleReport, divisionReport);
+
+    runBtn.setOnAction(e -> {
+      updateReport(jobTitleReport, monthBox.getValue(), yearBox.getValue(), true);
+      updateReport(divisionReport, monthBox.getValue(), yearBox.getValue(), false);
+    });
+
+    container.getChildren().addAll(selectors, reportsGrid);
+    VBox fullView = new VBox(header, container);
+    VBox.setVgrow(container, Priority.ALWAYS);
+    root.setCenter(fullView);
+  }
+
+  private VBox createReportCard(String title) {
+    VBox card = new VBox(20);
+    card.getStyleClass().add("card");
+    card.setPadding(new Insets(30));
+    
+    Label lbl = new Label(title);
+    lbl.getStyleClass().add("section-header");
+    
+    VBox dataList = new VBox(10);
+    card.getChildren().addAll(lbl, dataList);
+    return card;
+  }
+
+  private void updateReport(VBox card, int month, int year, boolean isJobTitle) {
+    VBox dataList = (VBox) card.getChildren().get(1);
+    dataList.getChildren().clear();
     try {
-      scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
-    } catch (Exception e) {
+      List<ReportEntry> entries = isJobTitle 
+          ? repository.getTotalPayByJobTitle(month, year)
+          : repository.getTotalPayByDivision(month, year);
+      
+      if (entries.isEmpty()) {
+          dataList.getChildren().add(new Label("No records found for this period."));
+      }
+      
+      for (var entry : entries) {
+        HBox row = new HBox();
+        row.setPadding(new Insets(10, 0, 10, 0));
+        row.getStyleClass().add("report-row");
+        Label cat = new Label(entry.getCategory());
+        Region s = new Region();
+        HBox.setHgrow(s, Priority.ALWAYS);
+        Label amt = new Label(String.format("$%,.2f", entry.getTotalAmount()));
+        amt.setStyle("-fx-font-weight: bold; -fx-text-fill: #0f172a;");
+        row.getChildren().addAll(cat, s, amt);
+        dataList.getChildren().add(row);
+        dataList.getChildren().add(new Separator());
+      }
+    } catch (SQLException e) {
+      showAlert("Report Error", e.getMessage());
     }
-
-    primaryStage.setScene(scene);
-    primaryStage.show();
-
-    loadComboBoxes();
-    handleSearch();
   }
 
   private void loadComboBoxes() {
@@ -217,7 +329,7 @@ public class App extends Application {
     container.setPadding(new Insets(35));
     container.setPrefWidth(420);
 
-    Label sectionTitle = new Label("MANAGE EMPLOYEE");
+    Label sectionTitle = new Label("Manage Employee");
     sectionTitle.getStyleClass().add("section-header");
 
     GridPane grid = new GridPane();
@@ -226,23 +338,28 @@ public class App extends Application {
 
     addFormField(grid, "Name", nameField, 0);
     addFormField(grid, "Email", emailField, 1);
+    
+    hireDatePicker.setMaxWidth(Double.MAX_VALUE);
     addFormField(grid, "Hire Date", hireDatePicker, 2);
+    
     addFormField(grid, "SSN", ssnField, 3);
     addFormField(grid, "Salary", salaryField, 4);
     
     Label jtLabel = new Label("Job Title");
     jtLabel.getStyleClass().add("form-label");
     grid.add(jtLabel, 0, 5);
-    HBox jtBox = new HBox(5, jobTitleCombo, createSmallButton("+", e -> handleNewJobTitle()), createSmallButton("-", e -> handleDeleteJobTitle()));
     jobTitleCombo.setMaxWidth(Double.MAX_VALUE);
+    jobTitleCombo.setPromptText("Select Position");
+    HBox jtBox = new HBox(5, jobTitleCombo, createSmallButton("+", e -> handleNewJobTitle()), createSmallButton("-", e -> handleDeleteJobTitle()));
     HBox.setHgrow(jobTitleCombo, Priority.ALWAYS);
     grid.add(jtBox, 1, 5);
 
     Label divLabel = new Label("Division");
     divLabel.getStyleClass().add("form-label");
     grid.add(divLabel, 0, 6);
-    HBox divBox = new HBox(5, divisionCombo, createSmallButton("+", e -> handleNewDivision()), createSmallButton("-", e -> handleDeleteDivision()));
     divisionCombo.setMaxWidth(Double.MAX_VALUE);
+    divisionCombo.setPromptText("Select Department");
+    HBox divBox = new HBox(5, divisionCombo, createSmallButton("+", e -> handleNewDivision()), createSmallButton("-", e -> handleDeleteDivision()));
     HBox.setHgrow(divisionCombo, Priority.ALWAYS);
     grid.add(divBox, 1, 6);
 
@@ -261,12 +378,13 @@ public class App extends Application {
     deleteBtn.setMaxWidth(Double.MAX_VALUE);
     deleteBtn.setOnAction(e -> handleDelete());
 
-    Button payrollBtn = new Button("View Payroll History");
+    Button payrollBtn = new Button("View Full Pay Statement");
+    payrollBtn.getStyleClass().add("button-outline");
     payrollBtn.setMaxWidth(Double.MAX_VALUE);
     payrollBtn.setOnAction(e -> handleViewPayroll());
 
     Separator sep = new Separator();
-    Label batchTitle = new Label("BATCH SALARY INCREASE");
+    Label batchTitle = new Label("Batch Salary Increase");
     batchTitle.getStyleClass().add("section-header");
 
     TextField pctField = new TextField();
@@ -290,6 +408,7 @@ public class App extends Application {
 
   private Button createSmallButton(String text, EventHandler<ActionEvent> handler) {
     Button b = new Button(text);
+    b.getStyleClass().add("button-small");
     b.setOnAction(handler);
     return b;
   }
@@ -376,16 +495,41 @@ public class App extends Application {
 
     Stage dialog = new Stage();
     dialog.initModality(Modality.APPLICATION_MODAL);
-    dialog.setTitle("Payroll History - " + selectedEmployee.getName());
+    dialog.setTitle("Employee Financial Overview");
+
+    VBox layout = new VBox(25);
+    layout.getStyleClass().add("card");
+    layout.setStyle("-fx-background-color: white; -fx-padding: 40;");
+    
+    Label header = new Label("Employee Pay Statement History");
+    header.getStyleClass().add("section-header");
+    
+    GridPane info = new GridPane();
+    info.setHgap(40);
+    info.setVgap(10);
+    info.add(new Label("Name:"), 0, 0); info.add(new Label(selectedEmployee.getName()), 1, 0);
+    info.add(new Label("Email:"), 0, 1); info.add(new Label(selectedEmployee.getEmail()), 1, 1);
+    info.add(new Label("Hire Date:"), 0, 2); info.add(new Label(selectedEmployee.getHireDate().toString()), 1, 2);
+    info.add(new Label("Current Salary:"), 2, 0); info.add(new Label(String.format("$%,.2f", selectedEmployee.getSalary())), 3, 0);
+    info.add(new Label("Job Title:"), 2, 1); info.add(new Label(selectedEmployee.getJobTitle().toString()), 3, 1);
+    info.add(new Label("Division:"), 2, 2); info.add(new Label(selectedEmployee.getDivision().toString()), 3, 2);
 
     TableView<Payroll> payrollTable = new TableView<>();
-    TableColumn<Payroll, LocalDate> dateCol = new TableColumn<>("Date");
+    TableColumn<Payroll, LocalDate> dateCol = new TableColumn<>("Pay Date");
     dateCol.setCellValueFactory(new PropertyValueFactory<>("payDate"));
     
-    TableColumn<Payroll, Double> earningsCol = new TableColumn<>("Earnings");
+    TableColumn<Payroll, Double> earningsCol = new TableColumn<>("Gross Earnings");
     earningsCol.setCellValueFactory(new PropertyValueFactory<>("earnings"));
+    earningsCol.setCellFactory(tc -> new TableCell<>() {
+        @Override protected void updateItem(Double v, boolean e) {
+            super.updateItem(v, e);
+            if (e || v == null) setText(null);
+            else setText(String.format("$%,.2f", v));
+        }
+    });
 
     payrollTable.getColumns().addAll(dateCol, earningsCol);
+    payrollTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
     try {
         payrollTable.setItems(FXCollections.observableArrayList(repository.getPayrollForEmployee(selectedEmployee.getEmpid())));
@@ -393,9 +537,14 @@ public class App extends Application {
         showAlert("Error", "Failed to load payroll.");
     }
 
-    VBox layout = new VBox(10, new Label("Payroll records for ID: " + selectedEmployee.getEmpid()), payrollTable);
-    layout.setPadding(new Insets(20));
-    dialog.setScene(new Scene(layout, 400, 400));
+    layout.getChildren().addAll(header, info, new Separator(), new Label("Payment History"), payrollTable);
+    
+    Scene scene = new Scene(layout, 800, 700);
+    try {
+        scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+    } catch (Exception e) {}
+    
+    dialog.setScene(scene);
     dialog.show();
   }
 
