@@ -61,6 +61,9 @@ powershell.exe -ExecutionPolicy Bypass -File .\setup_db.ps1
 - Accurate hire date entry and tracking via integrated date picker
 - Salary adjustments across specified percentage and pay ranges via batch processing
 - Individual payment record tracking and retrieval
+- Financial reporting for individual employee pay statements
+- Monthly payroll analytics summarized by job title
+- Monthly payroll analytics summarized by division
 - Data consistency for relational table updates via transactional integrity
 - Extensible employee classifications via object-oriented inheritance models
 - Decoupled data persistence via repository pattern abstraction
