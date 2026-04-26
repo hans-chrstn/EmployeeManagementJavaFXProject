@@ -4,9 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.project.employeemanagement.model.Division;
 import dev.project.employeemanagement.model.Employee;
 import dev.project.employeemanagement.model.FullTimeEmployee;
+import dev.project.employeemanagement.model.JobTitle;
 import dev.project.employeemanagement.model.Payroll;
+import dev.project.employeemanagement.model.ReportEntry;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -45,14 +48,17 @@ public class EmployeeRepositoryTest {
       stmt.execute("DELETE FROM employee_division");
       stmt.execute("DELETE FROM employee_job_titles");
       stmt.execute("DELETE FROM employees");
+      stmt.execute("DELETE FROM job_titles");
+      stmt.execute("DELETE FROM division");
       
-      stmt.execute(
-          "INSERT INTO employees (empid, Fname, Lname, SSN, Salary, email, HireDate) "
-              + "VALUES (1, 'John', 'Doe', '444444444', 50000.00, 'john@example.com', '2020-01-01')");
-
-      stmt.execute(
-          "INSERT INTO employees (empid, Fname, Lname, SSN, Salary, email, HireDate) "
-              + "VALUES (2, 'Jane', 'Smith', '555555555', 60000.00, 'jane@example.com', '2019-01-01')");
+      stmt.execute("INSERT INTO employees (empid, Fname, Lname, SSN, Salary, email, HireDate) VALUES (1, 'John', 'Doe', '444444444', 50000.00, 'john@example.com', '2020-01-01')");
+      stmt.execute("INSERT INTO employees (empid, Fname, Lname, SSN, Salary, email, HireDate) VALUES (2, 'Jane', 'Smith', '555555555', 60000.00, 'jane@example.com', '2019-01-01')");
+      
+      stmt.execute("INSERT INTO job_titles (job_title_id, job_title) VALUES (1, 'Engineer')");
+      stmt.execute("INSERT INTO employee_job_titles (empid, job_title_id) VALUES (1, 1)");
+      
+      stmt.execute("INSERT INTO division (ID, Name) VALUES (1, 'Engineering')");
+      stmt.execute("INSERT INTO employee_division (empid, div_ID) VALUES (1, 1)");
     }
   }
 
@@ -137,5 +143,22 @@ public class EmployeeRepositoryTest {
     List<Payroll> list = repository.getPayrollForEmployee(1);
     assertEquals(1, list.size());
     assertEquals(4000.0, list.get(0).getEarnings());
+  }
+
+  @Test
+  @DisplayName("Test: Analytics Reporting Logic")
+  void testAnalyticsReporting() throws SQLException {
+    LocalDate date = LocalDate.of(2023, 10, 1);
+    repository.addPayroll(new Payroll(0, date, 5000.0, 0, 0, 0, 0, 0, 0, 1));
+
+    List<ReportEntry> jtReport = repository.getTotalPayByJobTitle(10, 2023);
+    assertEquals(1, jtReport.size());
+    assertEquals("Engineer", jtReport.get(0).getCategory());
+    assertEquals(5000.0, jtReport.get(0).getTotalAmount());
+
+    List<ReportEntry> divReport = repository.getTotalPayByDivision(10, 2023);
+    assertEquals(1, divReport.size());
+    assertEquals("Engineering", divReport.get(0).getCategory());
+    assertEquals(5000.0, divReport.get(0).getTotalAmount());
   }
 }
