@@ -4,6 +4,7 @@ import dev.project.employeemanagement.model.Division;
 import dev.project.employeemanagement.model.Employee;
 import dev.project.employeemanagement.model.FullTimeEmployee;
 import dev.project.employeemanagement.model.JobTitle;
+import dev.project.employeemanagement.model.PayHistoryEntry;
 import dev.project.employeemanagement.model.Payroll;
 import dev.project.employeemanagement.model.ReportEntry;
 import java.sql.Connection;
@@ -359,6 +360,51 @@ public class EmployeeRepository implements IEmployeeRepository {
       try (ResultSet rs = stmt.executeQuery()) {
         while (rs.next()) {
           results.add(new ReportEntry(rs.getString("Name"), rs.getDouble("total")));
+        }
+      }
+    }
+    return results;
+  }
+
+  @Override
+  public List<PayHistoryEntry> getPayHistory(int month, int year) throws SQLException {
+    String sql =
+        "SELECT e.empid, CONCAT(e.Fname, ' ', e.Lname) AS name, e.SSN, " +
+        "(SELECT jt.job_title FROM employee_job_titles ejt " +
+        " JOIN job_titles jt ON ejt.job_title_id = jt.job_title_id " +
+        " WHERE ejt.empid = e.empid LIMIT 1) AS job_title, " +
+        "(SELECT d.Name FROM employee_division ed " +
+        " JOIN division d ON ed.div_ID = d.ID " +
+        " WHERE ed.empid = e.empid LIMIT 1) AS division, " +
+        "DATE_FORMAT(p.pay_date, '%Y-%m-%d') AS pay_date, " +
+        "p.earnings, p.fed_tax, p.fed_med, p.fed_ss, p.state_tax, p.retire_401k, p.health_care " +
+        "FROM employees e " +
+        "JOIN payroll p ON e.empid = p.empid " +
+        "WHERE MONTH(p.pay_date) = ? AND YEAR(p.pay_date) = ? " +
+        "ORDER BY e.Lname, e.Fname, p.pay_date";
+
+    List<PayHistoryEntry> results = new ArrayList<>();
+    try (Connection conn = DbConfig.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setInt(1, month);
+      stmt.setInt(2, year);
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          results.add(new PayHistoryEntry(
+              rs.getInt("empid"),
+              rs.getString("name"),
+              rs.getString("SSN"),
+              rs.getString("job_title"),
+              rs.getString("division"),
+              rs.getString("pay_date"),
+              rs.getDouble("earnings"),
+              rs.getDouble("fed_tax"),
+              rs.getDouble("fed_med"),
+              rs.getDouble("fed_ss"),
+              rs.getDouble("state_tax"),
+              rs.getDouble("retire_401k"),
+              rs.getDouble("health_care")
+          ));
         }
       }
     }

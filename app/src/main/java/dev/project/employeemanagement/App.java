@@ -4,6 +4,7 @@ import dev.project.employeemanagement.model.Division;
 import dev.project.employeemanagement.model.Employee;
 import dev.project.employeemanagement.model.FullTimeEmployee;
 import dev.project.employeemanagement.model.JobTitle;
+import dev.project.employeemanagement.model.PayHistoryEntry;
 import dev.project.employeemanagement.model.Payroll;
 import dev.project.employeemanagement.model.ReportEntry;
 import dev.project.employeemanagement.repository.EmployeeRepository;
@@ -11,6 +12,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 import javafx.application.Application;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -24,6 +26,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Control;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
@@ -71,23 +74,32 @@ public class App extends Application {
     employeesBtn.getStyleClass().addAll("nav-button", "nav-button-active");
     employeesBtn.setMaxWidth(Double.MAX_VALUE);
 
-    Button reportsBtn = new Button("Analytics");
-    reportsBtn.getStyleClass().add("nav-button");
-    reportsBtn.setMaxWidth(Double.MAX_VALUE);
+    Button payHistoryBtn = new Button("Pay History Report");
+    payHistoryBtn.getStyleClass().add("nav-button");
+    payHistoryBtn.setMaxWidth(Double.MAX_VALUE);
+
+    Button payAnalyticsBtn = new Button("Pay Analytics");
+    payAnalyticsBtn.getStyleClass().add("nav-button");
+    payAnalyticsBtn.setMaxWidth(Double.MAX_VALUE);
+
+    List<Button> navButtons = List.of(employeesBtn, payHistoryBtn, payAnalyticsBtn);
 
     employeesBtn.setOnAction(e -> {
       root.setCenter(dbView);
-      employeesBtn.getStyleClass().add("nav-button-active");
-      reportsBtn.getStyleClass().remove("nav-button-active");
+      setActiveNav(navButtons, employeesBtn);
     });
 
-    reportsBtn.setOnAction(e -> {
-      showReportsView();
-      reportsBtn.getStyleClass().add("nav-button-active");
-      employeesBtn.getStyleClass().remove("nav-button-active");
+    payHistoryBtn.setOnAction(e -> {
+      root.setCenter(buildPayHistoryView());
+      setActiveNav(navButtons, payHistoryBtn);
     });
 
-    navRail.getChildren().addAll(brand, employeesBtn, reportsBtn);
+    payAnalyticsBtn.setOnAction(e -> {
+      root.setCenter(buildCombinedReportView());
+      setActiveNav(navButtons, payAnalyticsBtn);
+    });
+
+    navRail.getChildren().addAll(brand, employeesBtn, payHistoryBtn, payAnalyticsBtn);
 
     dbView = createDbView();
     
@@ -135,9 +147,14 @@ public class App extends Application {
     VBox.setVgrow(table, Priority.ALWAYS);
 
     VBox sidebarDetail = createDetailPane();
-    sidebarDetail.getStyleClass().add("card");
 
-    HBox workspace = new HBox(30, tableCard, sidebarDetail);
+    ScrollPane sidebarScroll = new ScrollPane(sidebarDetail);
+    sidebarScroll.setFitToWidth(true);
+    sidebarScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    sidebarScroll.getStyleClass().add("card");
+    sidebarScroll.setPrefWidth(440);
+
+    HBox workspace = new HBox(30, tableCard, sidebarScroll);
     workspace.setPadding(new Insets(35));
     HBox.setHgrow(tableCard, Priority.ALWAYS);
 
@@ -148,92 +165,257 @@ public class App extends Application {
     return contentArea;
   }
 
-  private void showReportsView() {
+  private void setActiveNav(List<Button> buttons, Button active) {
+    for (Button b : buttons) b.getStyleClass().remove("nav-button-active");
+    active.getStyleClass().add("nav-button-active");
+  }
+
+  private VBox buildPayHistoryView() {
     HBox header = new HBox();
     header.getStyleClass().add("header-area");
     header.setAlignment(Pos.CENTER_LEFT);
-
-    Label title = new Label("Analytics");
+    Label title = new Label("Pay History Report");
     title.getStyleClass().add("header-title");
     header.getChildren().add(title);
 
-    VBox container = new VBox(30);
-    container.setPadding(new Insets(40));
-    container.getStyleClass().add("content-area");
-
-    HBox selectors = new HBox(15);
-    selectors.setAlignment(Pos.CENTER_LEFT);
-    ComboBox<Integer> monthBox = new ComboBox<>(FXCollections.observableArrayList(1,2,3,4,5,6,7,8,9,10,11,12));
-    monthBox.setValue(LocalDate.now().getMonthValue());
+    List<String> monthNames = List.of("January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December");
+    ComboBox<String> monthBox = new ComboBox<>(FXCollections.observableArrayList(monthNames));
+    monthBox.setValue("January");
     ComboBox<Integer> yearBox = new ComboBox<>(FXCollections.observableArrayList(2023, 2024, 2025, 2026));
-    yearBox.setValue(LocalDate.now().getYear());
-    Button runBtn = new Button("Generate Summary Reports");
+    yearBox.setValue(2025);
+    Button runBtn = new Button("Generate Report");
     runBtn.getStyleClass().add("button-primary");
 
-    selectors.getChildren().addAll(new Label("Select Period:"), monthBox, yearBox, runBtn);
+    HBox selectors = new HBox(15, new Label("Period:"), monthBox, yearBox, runBtn);
+    selectors.setAlignment(Pos.CENTER_LEFT);
+    selectors.setPadding(new Insets(20, 35, 20, 35));
 
-    HBox reportsGrid = new HBox(30);
-    VBox.setVgrow(reportsGrid, Priority.ALWAYS);
+    TableView<PayHistoryEntry> payTable = new TableView<>();
+    setupPayHistoryTable(payTable);
 
-    VBox jobTitleReport = createReportCard("Payroll Summary by Position");
-    VBox divisionReport = createReportCard("Payroll Summary by Department");
-    HBox.setHgrow(jobTitleReport, Priority.ALWAYS);
-    HBox.setHgrow(divisionReport, Priority.ALWAYS);
-
-    reportsGrid.getChildren().addAll(jobTitleReport, divisionReport);
+    VBox tableCard = new VBox(payTable);
+    tableCard.getStyleClass().add("card");
+    tableCard.setPadding(new Insets(20, 35, 35, 35));
+    VBox.setVgrow(payTable, Priority.ALWAYS);
 
     runBtn.setOnAction(e -> {
-      updateReport(jobTitleReport, monthBox.getValue(), yearBox.getValue(), true);
-      updateReport(divisionReport, monthBox.getValue(), yearBox.getValue(), false);
+      int month = monthBox.getSelectionModel().getSelectedIndex() + 1;
+      int year = yearBox.getValue();
+      try {
+        List<PayHistoryEntry> data = repository.getPayHistory(month, year);
+        payTable.setItems(FXCollections.observableArrayList(data));
+        updateStatus(data.isEmpty() ? "No payroll records found for this period." : data.size() + " records found.");
+      } catch (SQLException ex) {
+        showAlert("Report Error", ex.getMessage());
+      }
     });
 
-    container.getChildren().addAll(selectors, reportsGrid);
-    VBox fullView = new VBox(header, container);
-    VBox.setVgrow(container, Priority.ALWAYS);
-    root.setCenter(fullView);
+    VBox content = new VBox(selectors, tableCard);
+    content.getStyleClass().add("content-area");
+    VBox.setVgrow(tableCard, Priority.ALWAYS);
+
+    runBtn.fire();
+
+    VBox view = new VBox(header, content);
+    VBox.setVgrow(content, Priority.ALWAYS);
+    return view;
   }
 
-  private VBox createReportCard(String title) {
-    VBox card = new VBox(20);
-    card.getStyleClass().add("card");
-    card.setPadding(new Insets(30));
-    
-    Label lbl = new Label(title);
-    lbl.getStyleClass().add("section-header");
-    
-    VBox dataList = new VBox(10);
-    card.getChildren().addAll(lbl, dataList);
-    return card;
+  private void setupPayHistoryTable(TableView<PayHistoryEntry> t) {
+    TableColumn<PayHistoryEntry, String> nameCol = new TableColumn<>("Name");
+    nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+    TableColumn<PayHistoryEntry, String> ssnCol = new TableColumn<>("SSN");
+    ssnCol.setCellValueFactory(new PropertyValueFactory<>("ssn"));
+
+    TableColumn<PayHistoryEntry, String> jtCol = new TableColumn<>("Job Title");
+    jtCol.setCellValueFactory(new PropertyValueFactory<>("jobTitle"));
+
+    TableColumn<PayHistoryEntry, String> divCol = new TableColumn<>("Division");
+    divCol.setCellValueFactory(new PropertyValueFactory<>("division"));
+
+    TableColumn<PayHistoryEntry, String> dateCol = new TableColumn<>("Pay Date");
+    dateCol.setCellValueFactory(new PropertyValueFactory<>("payDate"));
+
+    TableColumn<PayHistoryEntry, Double> earningsCol = new TableColumn<>("Gross Pay");
+    earningsCol.setCellValueFactory(new PropertyValueFactory<>("earnings"));
+    earningsCol.setCellFactory(tc -> new TableCell<>() {
+      @Override protected void updateItem(Double v, boolean e) {
+        super.updateItem(v, e); setText(e || v == null ? null : String.format("$%,.2f", v));
+      }
+    });
+
+    TableColumn<PayHistoryEntry, Double> fedTaxCol = new TableColumn<>("Fed Tax");
+    fedTaxCol.setCellValueFactory(new PropertyValueFactory<>("fedTax"));
+    fedTaxCol.setCellFactory(tc -> new TableCell<>() {
+      @Override protected void updateItem(Double v, boolean e) {
+        super.updateItem(v, e); setText(e || v == null ? null : String.format("$%,.2f", v));
+      }
+    });
+
+    TableColumn<PayHistoryEntry, Double> fedMedCol = new TableColumn<>("Fed Med");
+    fedMedCol.setCellValueFactory(new PropertyValueFactory<>("fedMed"));
+    fedMedCol.setCellFactory(tc -> new TableCell<>() {
+      @Override protected void updateItem(Double v, boolean e) {
+        super.updateItem(v, e); setText(e || v == null ? null : String.format("$%,.2f", v));
+      }
+    });
+
+    TableColumn<PayHistoryEntry, Double> fedSsCol = new TableColumn<>("Fed SS");
+    fedSsCol.setCellValueFactory(new PropertyValueFactory<>("fedSs"));
+    fedSsCol.setCellFactory(tc -> new TableCell<>() {
+      @Override protected void updateItem(Double v, boolean e) {
+        super.updateItem(v, e); setText(e || v == null ? null : String.format("$%,.2f", v));
+      }
+    });
+
+    TableColumn<PayHistoryEntry, Double> stateTaxCol = new TableColumn<>("State Tax");
+    stateTaxCol.setCellValueFactory(new PropertyValueFactory<>("stateTax"));
+    stateTaxCol.setCellFactory(tc -> new TableCell<>() {
+      @Override protected void updateItem(Double v, boolean e) {
+        super.updateItem(v, e); setText(e || v == null ? null : String.format("$%,.2f", v));
+      }
+    });
+
+    TableColumn<PayHistoryEntry, Double> retireCol = new TableColumn<>("401k");
+    retireCol.setCellValueFactory(new PropertyValueFactory<>("retire401k"));
+    retireCol.setCellFactory(tc -> new TableCell<>() {
+      @Override protected void updateItem(Double v, boolean e) {
+        super.updateItem(v, e); setText(e || v == null ? null : String.format("$%,.2f", v));
+      }
+    });
+
+    TableColumn<PayHistoryEntry, Double> healthCol = new TableColumn<>("Health Care");
+    healthCol.setCellValueFactory(new PropertyValueFactory<>("healthCare"));
+    healthCol.setCellFactory(tc -> new TableCell<>() {
+      @Override protected void updateItem(Double v, boolean e) {
+        super.updateItem(v, e); setText(e || v == null ? null : String.format("$%,.2f", v));
+      }
+    });
+
+    TableColumn<PayHistoryEntry, Double> netCol = new TableColumn<>("Net Pay");
+    netCol.setCellValueFactory(cd -> new SimpleDoubleProperty(cd.getValue().getNetPay()).asObject());
+    netCol.setCellFactory(tc -> new TableCell<>() {
+      @Override protected void updateItem(Double v, boolean e) {
+        super.updateItem(v, e); setText(e || v == null ? null : String.format("$%,.2f", v));
+      }
+    });
+
+    nameCol.setPrefWidth(140);
+    ssnCol.setPrefWidth(110);
+    jtCol.setPrefWidth(130);
+    divCol.setPrefWidth(130);
+    dateCol.setPrefWidth(100);
+    earningsCol.setPrefWidth(110);
+    fedTaxCol.setPrefWidth(90);
+    fedMedCol.setPrefWidth(90);
+    fedSsCol.setPrefWidth(90);
+    stateTaxCol.setPrefWidth(90);
+    retireCol.setPrefWidth(80);
+    healthCol.setPrefWidth(100);
+    netCol.setPrefWidth(110);
+
+    t.getColumns().addAll(nameCol, ssnCol, jtCol, divCol, dateCol, earningsCol,
+        fedTaxCol, fedMedCol, fedSsCol, stateTaxCol, retireCol, healthCol, netCol);
   }
 
-  private void updateReport(VBox card, int month, int year, boolean isJobTitle) {
-    VBox dataList = (VBox) card.getChildren().get(1);
-    dataList.getChildren().clear();
-    try {
-      List<ReportEntry> entries = isJobTitle 
-          ? repository.getTotalPayByJobTitle(month, year)
-          : repository.getTotalPayByDivision(month, year);
-      
-      if (entries.isEmpty()) {
-          dataList.getChildren().add(new Label("No records found for this period."));
+  private VBox buildCombinedReportView() {
+    HBox header = new HBox();
+    header.getStyleClass().add("header-area");
+    header.setAlignment(Pos.CENTER_LEFT);
+    Label title = new Label("Pay Analytics");
+    title.getStyleClass().add("header-title");
+    header.getChildren().add(title);
+
+    List<String> monthNames = List.of("January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December");
+    ComboBox<String> monthBox = new ComboBox<>(FXCollections.observableArrayList(monthNames));
+    monthBox.setValue("January");
+    ComboBox<Integer> yearBox = new ComboBox<>(FXCollections.observableArrayList(2023, 2024, 2025, 2026));
+    yearBox.setValue(2025);
+    Button runBtn = new Button("Generate Report");
+    runBtn.getStyleClass().add("button-primary");
+
+    HBox selectors = new HBox(15, new Label("Period:"), monthBox, yearBox, runBtn);
+    selectors.setAlignment(Pos.CENTER_LEFT);
+
+    TableView<ReportEntry> jobTable = new TableView<>();
+    setupGroupReportTable(jobTable, "Job Title");
+    Label jobTotal = new Label();
+    jobTotal.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 8 0 0 0;");
+
+    TableView<ReportEntry> divTable = new TableView<>();
+    setupGroupReportTable(divTable, "Division");
+    Label divTotal = new Label();
+    divTotal.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 8 0 0 0;");
+
+    Label jobCardTitle = new Label("By Job Title");
+    jobCardTitle.getStyleClass().add("section-header");
+    VBox jobCard = new VBox(12, jobCardTitle, jobTable, jobTotal);
+    jobCard.getStyleClass().add("card");
+    jobCard.setPadding(new Insets(20));
+    HBox.setHgrow(jobCard, Priority.ALWAYS);
+    VBox.setVgrow(jobTable, Priority.ALWAYS);
+
+    Label divCardTitle = new Label("By Division");
+    divCardTitle.getStyleClass().add("section-header");
+    VBox divCard = new VBox(12, divCardTitle, divTable, divTotal);
+    divCard.getStyleClass().add("card");
+    divCard.setPadding(new Insets(20));
+    HBox.setHgrow(divCard, Priority.ALWAYS);
+    VBox.setVgrow(divTable, Priority.ALWAYS);
+
+    HBox tables = new HBox(25, jobCard, divCard);
+    VBox.setVgrow(tables, Priority.ALWAYS);
+
+    runBtn.setOnAction(e -> {
+      int month = monthBox.getSelectionModel().getSelectedIndex() + 1;
+      int year = yearBox.getValue();
+      try {
+        List<ReportEntry> jobData = repository.getTotalPayByJobTitle(month, year);
+        jobTable.setItems(FXCollections.observableArrayList(jobData));
+        double jobGrand = jobData.stream().mapToDouble(ReportEntry::getTotalAmount).sum();
+        jobTotal.setText(jobData.isEmpty() ? "" : String.format("Grand Total:  $%,.2f", jobGrand));
+
+        List<ReportEntry> divData = repository.getTotalPayByDivision(month, year);
+        divTable.setItems(FXCollections.observableArrayList(divData));
+        double divGrand = divData.stream().mapToDouble(ReportEntry::getTotalAmount).sum();
+        divTotal.setText(divData.isEmpty() ? "" : String.format("Grand Total:  $%,.2f", divGrand));
+
+        updateStatus((jobData.size() + divData.size()) == 0 ? "No records found for this period." : "Report generated.");
+      } catch (SQLException ex) {
+        showAlert("Report Error", ex.getMessage());
       }
-      
-      for (var entry : entries) {
-        HBox row = new HBox();
-        row.setPadding(new Insets(10, 0, 10, 0));
-        row.getStyleClass().add("report-row");
-        Label cat = new Label(entry.getCategory());
-        Region s = new Region();
-        HBox.setHgrow(s, Priority.ALWAYS);
-        Label amt = new Label(String.format("$%,.2f", entry.getTotalAmount()));
-        amt.setStyle("-fx-font-weight: bold; -fx-text-fill: #0f172a;");
-        row.getChildren().addAll(cat, s, amt);
-        dataList.getChildren().add(row);
-        dataList.getChildren().add(new Separator());
+    });
+
+    VBox content = new VBox(20, selectors, tables);
+    content.getStyleClass().add("content-area");
+    content.setPadding(new Insets(30));
+    VBox.setVgrow(tables, Priority.ALWAYS);
+    VBox.setVgrow(content, Priority.ALWAYS);
+
+    runBtn.fire();
+
+    VBox view = new VBox(header, content);
+    VBox.setVgrow(content, Priority.ALWAYS);
+    return view;
+  }
+
+  private void setupGroupReportTable(TableView<ReportEntry> t, String categoryLabel) {
+    TableColumn<ReportEntry, String> catCol = new TableColumn<>(categoryLabel);
+    catCol.setCellValueFactory(new PropertyValueFactory<>("category"));
+
+    TableColumn<ReportEntry, Double> totalCol = new TableColumn<>("Total Earnings");
+    totalCol.setCellValueFactory(new PropertyValueFactory<>("totalAmount"));
+    totalCol.setCellFactory(tc -> new TableCell<>() {
+      @Override protected void updateItem(Double v, boolean e) {
+        super.updateItem(v, e); setText(e || v == null ? null : String.format("$%,.2f", v));
       }
-    } catch (SQLException e) {
-      showAlert("Report Error", e.getMessage());
-    }
+    });
+
+    t.getColumns().addAll(catCol, totalCol);
+    t.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
   }
 
   private void loadComboBoxes() {
@@ -253,8 +435,8 @@ public class App extends Application {
     TableColumn<Employee, String> nameCol = new TableColumn<>("Name");
     nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
 
-    TableColumn<Employee, String> emailCol = new TableColumn<>("Email");
-    emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
+    TableColumn<Employee, String> ssnCol = new TableColumn<>("SSN");
+    ssnCol.setCellValueFactory(new PropertyValueFactory<>("ssn"));
 
     TableColumn<Employee, Double> salaryCol = new TableColumn<>("Salary");
     salaryCol.setCellValueFactory(new PropertyValueFactory<>("salary"));
@@ -273,7 +455,10 @@ public class App extends Application {
     TableColumn<Employee, JobTitle> jobTitleCol = new TableColumn<>("Job Title");
     jobTitleCol.setCellValueFactory(new PropertyValueFactory<>("jobTitle"));
 
-    table.getColumns().addAll(idCol, nameCol, emailCol, salaryCol, jobTitleCol);
+    TableColumn<Employee, Division> divisionCol = new TableColumn<>("Division");
+    divisionCol.setCellValueFactory(new PropertyValueFactory<>("division"));
+
+    table.getColumns().addAll(idCol, nameCol, ssnCol, salaryCol, jobTitleCol, divisionCol);
 
     table
         .getSelectionModel()

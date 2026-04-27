@@ -129,10 +129,19 @@
 }
 
 .table-view .cell {
-  -fx-padding: 18;
+  -fx-padding: 12 14;
   -fx-border-color: #f1f5f9;
   -fx-border-width: 0 0 1 0;
-  -fx-font-size: 14px;
+  -fx-font-size: 13px;
+}
+
+.scroll-pane {
+  -fx-background-color: white;
+  -fx-background: white;
+  -fx-border-color: transparent;
+}
+.scroll-pane > .viewport {
+  -fx-background-color: white;
 }
 
 .table-row-cell:selected {

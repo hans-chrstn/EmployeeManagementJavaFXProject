@@ -7,6 +7,7 @@ import dev.project.employeemanagement.model.Payroll;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import dev.project.employeemanagement.model.PayHistoryEntry;
 import dev.project.employeemanagement.model.ReportEntry;
 
 public interface IEmployeeRepository {
@@ -40,4 +41,6 @@ public interface IEmployeeRepository {
   List<ReportEntry> getTotalPayByJobTitle(int month, int year) throws SQLException;
 
   List<ReportEntry> getTotalPayByDivision(int month, int year) throws SQLException;
+
+  List<PayHistoryEntry> getPayHistory(int month, int year) throws SQLException;
 }
